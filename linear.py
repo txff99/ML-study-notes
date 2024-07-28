@@ -35,12 +35,25 @@ def test_output():
 
 def test_backward():
     input_tensor = np.random.rand(4,2)
-    gt_tensor = Tensor(np.random.rand(4,3))
+    gt_tensor = np.random.rand(4,3)
     
     ll = Linear(2,3,bias=True)
     output_tensor = ll(Tensor(input_tensor))
-    l2 = (output_tensor-gt_tensor).l2()
+    l2 = (output_tensor-Tensor(gt_tensor)).mseLoss()
     l2.backward()
+
+    ll_gt = nn.Linear(2,3,bias=False)
+    copy_weights(ll,ll_gt)
+    output_tensor_gt = ll_gt(torch.from_numpy(input_tensor).float())
+    output_tensor_gt.retain_grad()
+    l2_gt = nn.MSELoss()(torch.from_numpy(gt_tensor).float(),output_tensor_gt)
+    l2_gt.backward()
+
+    print("mse:", l2.numpy())
+    print("mse gt:", l2_gt.detach().numpy())
+    print(f"gradient :\n weights {ll.weights.gradient}\n bias {ll.bias.gradient}")
+    print(f"gt gradient :\n weights {ll_gt.weight.grad}\n bias {ll_gt.bias.grad}")
+    
 
 if __name__ == "__main__":
     test_backward()
