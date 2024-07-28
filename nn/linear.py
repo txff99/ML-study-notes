@@ -1,5 +1,7 @@
 import numpy as np
-from Tensor import Tensor
+import sys
+sys.path.append("..")
+from tensor import Tensor
 
 class Linear:
     def __init__(self, in_feature:int, out_feature:int, bias:bool = False):
@@ -11,7 +13,7 @@ class Linear:
     def __call__(self,x:Tensor) -> Tensor:
         assert isinstance(x,Tensor), "input should be a Tensor"
         assert x.shape[-1] == self.weights.shape[0], f"tensor shape should be (...,{self.weights.shape[0]})"
-        return x @ self.weights + self.bias
+        return x @ self.weights + self.bias.expand(x.shape[0])
     
 
             
