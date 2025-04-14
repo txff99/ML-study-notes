@@ -26,7 +26,7 @@ class Add(Function):
     def __init__(self,a:Tensor,b:Tensor):
         super().__init__(a,b)
         self.name = "add"
-        
+
     def backward(self,grad:np.array):
         for mem in self.parents:
             mem.gradient = grad
@@ -45,7 +45,7 @@ class Sub(Function):
 class MatMul(Function):
     def __init__(self,a:Tensor,b:Tensor):
         super().__init__(a,b)
-        self.name = "matml"
+        self.name = "matmul"
     
     def backward(self,grad:np.array):
         mem1, mem2 = self.parents
@@ -66,8 +66,8 @@ class MSELoss(Function):
         mem.backward()
 
 class Expand(Function):
-    def __init__(self,a:Tensor):
-        super().__init__(a)
+    def __init__(self,a:Tensor,b:Tensor):
+        super().__init__(a,b)
         self.name = "expd"
     
     def backward(self,grad:np.array):
