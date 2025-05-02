@@ -13,6 +13,7 @@ class TestCPUAri(unittest.TestCase):
         b = Tensor([[2],
                     [1]])
         c = a @ b
+        c.toGPU()
         np.testing.assert_array_equal(c.evaluate(), np.array([[4],
                                                 [10]]))
     

@@ -29,13 +29,14 @@ class Op:
 
 class Tensor:
     def __init__(self,data=None,function=None,shape=None,dtype=np.float32,is_evaluated=True):
-        self.data = np.asarray(data)
+        from runtime import CPU
+        self.data = np.asarray(data, dtype=dtype)
         self.dtype = dtype
         self.gradient: np.array = None
         self.function = function
-        self.shape = self.data.shape if self.data is not None else shape
+        self.shape = shape if shape is not None else self.data.shape 
         self.is_evaluated = is_evaluated
-        self.device = "cpu"
+        self.device = CPU()
         self.device_ptr = None
     
     def numpy(self) -> np.array:
@@ -58,51 +59,53 @@ class Tensor:
     def toGPU(self):
         """allocate mem on gpu for itself and its parents"""
         from runtime import GPU
-        gpu = GPU()
+        libpath = "/home/lawlet/Documents/tutorial/dl_impl/runtime/cuda/libcuda.so"
+        # cpu does not require resource dealloc, so replace it with gpu directly
+        self.device = GPU(libpath)
         visited = set()
         def dfs(tensor: Tensor):
             if tensor in visited: return
-            if tensor.device == "gpu": return
-            tensor.device = "gpu"
+            tensor.device = self.device
             visited.add(tensor)
-            gpu.alloc(tensor)
-            if tensor.is_evaluated == True: 
-                gpu.copyHTOD(tensor)
+            self.device.alloc(tensor)
+            if tensor.is_evaluated == True:
+                self.device.copyHTOD(tensor)
             if tensor.function is None: return
             for mem in tensor.function.parents:
                 dfs(mem)
         dfs(self)        
-
 
     def toCPU(self, cleanup: bool = False):
         """copy gpu data back to cpu; clean up (optional)"""
-        from runtime import GPU
-        gpu = GPU()
+        from runtime import CPU
+        if self.device.name != "gpu": return
         visited = set()
         def dfs(tensor: Tensor):
             if tensor in visited: return
-            if tensor.device == "cpu": return
-            tensor.device = "cpu"
             visited.add(tensor)    
-            gpu.copyDTOH(tensor)
+            if tensor.is_evaluated == False:
+                # only set is_evaluated when copy   the data to host
+                self.device.copyDTOH(tensor)
+                tensor.is_evaluated = True
             if cleanup:
-                gpu.free(tensor)
+                self.device.free(tensor)
             if tensor.function is None: return
             for mem in tensor.function.parents:
                 dfs(mem)
         dfs(self)        
+        self.device = CPU()
 
     def evaluate(self) -> np.array:
         from runtime import CPU
         from runtime import GPU
-        if self.device == "cpu":
-            cpu = CPU(self.lower())
-            cpu.run()
+        if self.device.name == "cpu":
+            self.device.apply(self.lower())
+            self.device.run()
             return self.data
-        elif self.device == "gpu":
-            gpu = GPU(self.lower())
-            gpu.run()
-            self.toCPU(cleanup=True)
+        elif self.device.name == "gpu":
+            self.device.apply(self.lower())
+            self.device.run()
+            self.toCPU(cleanup=False)
             return self.data
 
     def __add__(self, other: Tensor) -> Tensor:

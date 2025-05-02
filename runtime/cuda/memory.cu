@@ -12,16 +12,16 @@ extern "C" void* alloc_on_gpu(int size_bytes) {
 }
 
 extern "C" void free_on_gpu(void* ptr) {
-    cudaFree(ptr);
+    cudaError_t err = cudaFree(ptr);
     if (err != cudaSuccess) {
         printf("cudaFree failed: %s\n", cudaGetErrorString(err));
     }
 }
 
-void cuda_copy_to_device(void* dst, const void* src, size_t size) {
+extern "C" void cuda_copy_to_device(void* dst, const void* src, size_t size) {
     cudaMemcpy(dst, src, size, cudaMemcpyHostToDevice);
 }
 
-void cuda_copy_to_host(void* dst, const void* src, size_t size) {
+extern "C" void cuda_copy_to_host(void* dst, const void* src, size_t size) {
     cudaMemcpy(dst, src, size, cudaMemcpyDeviceToHost);
 }
