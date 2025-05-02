@@ -3,6 +3,11 @@ import numpy as np
 from typing import List
 from enum import Enum
 
+"""
+tensor used to provide interface for data operation
+"""
+
+
 class OpType(Enum):
     ADD = 1
     SUB = 2
@@ -29,15 +34,15 @@ class Op:
 
 class Tensor:
     def __init__(self,data=None,function=None,shape=None,dtype=np.float32,is_evaluated=True):
-        from runtime import CPU
+        from backend import CPU
         self.data = np.asarray(data, dtype=dtype)
         self.dtype = dtype
         self.gradient: np.array = None
         self.function = function
         self.shape = shape if shape is not None else self.data.shape 
         self.is_evaluated = is_evaluated
-        self.device = CPU()
-        self.device_ptr = None
+        self.backend = CPU()
+        self.backend_ptr = None
     
     def numpy(self) -> np.array:
         return self.data
@@ -58,18 +63,18 @@ class Tensor:
     
     def toGPU(self):
         """allocate mem on gpu for itself and its parents"""
-        from runtime import GPU
+        from backend import GPU
         libpath = "/home/lawlet/Documents/tutorial/dl_impl/runtime/cuda/libcuda.so"
         # cpu does not require resource dealloc, so replace it with gpu directly
-        self.device = GPU(libpath)
+        self.backend = GPU(libpath)
         visited = set()
         def dfs(tensor: Tensor):
             if tensor in visited: return
-            tensor.device = self.device
+            tensor.backend = self.backend
             visited.add(tensor)
-            self.device.alloc(tensor)
+            self.backend.alloc(tensor)
             if tensor.is_evaluated == True:
-                self.device.copyHTOD(tensor)
+                self.backend.copyHTOD(tensor)
             if tensor.function is None: return
             for mem in tensor.function.parents:
                 dfs(mem)
@@ -77,36 +82,32 @@ class Tensor:
 
     def toCPU(self, cleanup: bool = False):
         """copy gpu data back to cpu; clean up (optional)"""
-        from runtime import CPU
-        if self.device.name != "gpu": return
+        from backend import CPU
+        if self.backend.name != "gpu": return
         visited = set()
         def dfs(tensor: Tensor):
             if tensor in visited: return
             visited.add(tensor)    
             if tensor.is_evaluated == False:
                 # only set is_evaluated when copy   the data to host
-                self.device.copyDTOH(tensor)
+                self.backend.copyDTOH(tensor)
                 tensor.is_evaluated = True
             if cleanup:
-                self.device.free(tensor)
+                self.backend.free(tensor)
             if tensor.function is None: return
             for mem in tensor.function.parents:
                 dfs(mem)
         dfs(self)        
-        self.device = CPU()
+        self.backend = CPU()
 
     def evaluate(self, cleanup_after_eval=True) -> np.array:
-        from runtime import CPU
-        from runtime import GPU
-        if self.device.name == "cpu":
-            self.device.apply(self.lower())
-            self.device.run()
-            return self.data
-        elif self.device.name == "gpu":
-            self.device.apply(self.lower())
-            self.device.run()
+        from engine import Engine
+        engine = Engine(self.backend, self.lower())
+        engine.run()
+        if self.backend.name == "gpu":
+            # gpu need cleanup
             self.toCPU(cleanup=cleanup_after_eval)
-            return self.data
+        return self.data
 
     def __add__(self, other: Tensor) -> Tensor:
         from function import Add
@@ -137,7 +138,7 @@ class Tensor:
     def expand(self, size: int) -> Tensor:
         from function import Expand
         assert size >=1 , "size should be bigger than 1"
-        return Tensor(None,function=Expand(self, Tensor(data=size)),shape=(size,*self.shape), is_evaluated=False)
+        return Tensor(None,function=Expand(self),shape=(size,*self.shape), is_evaluated=False)
 
 
     def mseLoss(self) -> Tensor:

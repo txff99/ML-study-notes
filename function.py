@@ -3,6 +3,10 @@ from tensor import Tensor
 
 LEVEL_BLANK = "|    "
 
+"""
+function use to store compute graph
+"""
+
 class Function:
     def __init__(self, *mem:Tensor):
         self.parents = list(mem)
@@ -66,8 +70,8 @@ class MSELoss(Function):
         mem.backward()
 
 class Expand(Function):
-    def __init__(self,a:Tensor,b:Tensor):
-        super().__init__(a,b)
+    def __init__(self, a:Tensor):
+        super().__init__(a)
         self.name = "expd"
     
     def backward(self,grad:np.array):
