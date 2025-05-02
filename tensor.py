@@ -95,7 +95,7 @@ class Tensor:
         dfs(self)        
         self.device = CPU()
 
-    def evaluate(self) -> np.array:
+    def evaluate(self, cleanup_after_eval=True) -> np.array:
         from runtime import CPU
         from runtime import GPU
         if self.device.name == "cpu":
@@ -105,7 +105,7 @@ class Tensor:
         elif self.device.name == "gpu":
             self.device.apply(self.lower())
             self.device.run()
-            self.toCPU(cleanup=False)
+            self.toCPU(cleanup=cleanup_after_eval)
             return self.data
 
     def __add__(self, other: Tensor) -> Tensor:
