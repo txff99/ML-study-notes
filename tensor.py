@@ -14,13 +14,15 @@ class OpType(Enum):
     MATMUL = 3
     MSELOSS = 4 
     EXPAND = 5
+    MAX = 6
 
 FUNCTION_TO_OPTYPE = {
     "add": OpType.ADD,
     "sub": OpType.SUB,
     "matmul": OpType.MATMUL,
     "mse": OpType.MSELOSS,
-    "expd": OpType.EXPAND
+    "expd": OpType.EXPAND,
+    "max": OpType.MAX
 }
 
 class Op:
@@ -140,6 +142,9 @@ class Tensor:
         assert size >=1 , "size should be bigger than 1"
         return Tensor(None,function=Expand(self),shape=(size,*self.shape), is_evaluated=False)
 
+    def max(self, x: int) -> Tensor:
+        from function import Max
+        return Tensor(None, function=Max(self, x), shape=(self.shape), is_evaluated=False)
 
     def mseLoss(self) -> Tensor:
         from function import MSELoss

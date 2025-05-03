@@ -78,4 +78,16 @@ class Expand(Function):
         mem = self.parents[0]
         mem.gradient = np.sum(grad,axis=0)
         mem.backward()
+
+class Max(Function):
+    def __init__(self, a:Tensor, gate: int):
+        super().__init__(a)
+        self.name = "max"
+        self.gate = gate
+    
+    def backward(self,grad:np.array):
+        mem = self.parents[0]
+        mask = mem.data > self.gate
+        mem.gradient = grad * mask
+        mem.backward()
     
