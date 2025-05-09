@@ -14,15 +14,27 @@ class OpType(Enum):
     MATMUL = 3
     MSELOSS = 4 
     EXPAND = 5
-    MAX = 6
+    MAXIMUM = 6
+    MAX = 7
+    MUL = 8
+    DIV = 9
+    SUM = 10
+    EXP = 11
+    SQRT = 12
 
 FUNCTION_TO_OPTYPE = {
     "add": OpType.ADD,
     "sub": OpType.SUB,
     "matmul": OpType.MATMUL,
     "mse": OpType.MSELOSS,
-    "expd": OpType.EXPAND,
-    "max": OpType.MAX
+    "expand": OpType.EXPAND,
+    "maximum": OpType.MAXIMUM,
+    "max": OpType.MAX,
+    "mul": OpType.MUL,
+    "div": OpType.DIV,
+    "exp": OpType.EXP,
+    "sum": OpType.SUM,
+    "sqrt": OpType.SQRT,
 }
 
 class Op:
@@ -126,6 +138,22 @@ class Tensor:
             return Tensor(None,function=Sub(self,other), shape=other.shape,is_evaluated=False)
         else:
             raise TypeError("The operand must be an instance of Tensor")
+    
+    def __mul__(self, other:Tensor) -> Tensor:
+        from function import Mul
+        assert self.shape==other.shape , "tensor shape is not the same"
+        if isinstance(other, Tensor):
+            return Tensor(None,function=Mul(self,other), shape=other.shape,is_evaluated=False)
+        else:
+            raise TypeError("The operand must be an instance of Tensor")
+
+    def __div__(self, other:Tensor) -> Tensor:
+        from function import Div
+        assert self.shape==other.shape , "tensor shape is not the same"
+        if isinstance(other, Tensor):
+            return Tensor(None,function=Div(self,other), shape=other.shape,is_evaluated=False)
+        else:
+            raise TypeError("The operand must be an instance of Tensor")
 
     def __matmul__(self, other: Tensor) -> Tensor:
         from function import MatMul
@@ -142,14 +170,36 @@ class Tensor:
         assert size >=1 , "size should be bigger than 1"
         return Tensor(None,function=Expand(self),shape=(size,*self.shape), is_evaluated=False)
 
-    def max(self, x: int) -> Tensor:
-        from function import Max
-        return Tensor(None, function=Max(self, x), shape=(self.shape), is_evaluated=False)
+    def maximum(self, gate: int) -> Tensor:
+        from function import Maximum
+        return Tensor(None, function=Maximum(self, gate), shape=self.shape, is_evaluated=False)
 
+    def exp(self) -> Tensor:
+        from function import Exp
+        return Tensor(None, functon=Exp(self), shape=self.shape, is_evaluated=False)
+
+    def sqrt(self) -> Tensor:
+        from function import Sqrt
+        return Tensor(None, function=Sqrt(self), shape=self.shape, is_evaluated=False)
+
+    def max(self, dim:int) -> Tensor:
+        from function import Max
+        return Tensor(None, function=Max(self, dim), shape=self.shape[:dim] + self.shape[dim+1:], is_evaluated=False)
+    
+    def sum(self, dim:int) -> Tensor:
+        from function import Sum
+        return Tensor(None, function=Sum(self, dim), shape=self.shape[:dim] + self.shape[dim+1:], is_evaluated=False)
+    
     def mseLoss(self) -> Tensor:
         from function import MSELoss
         return Tensor(None,function=MSELoss(self), shape=(1,),is_evaluated=False)
 
+    def transpose(self) -> Tensor:
+        pass
+
+    def concate(self, dim:int) -> Tensor:
+        pass
+    
     def __repr__(self):
         return f"Tensor(data= {self.data}, grad= {self.gradient}, function: {self.function})"
     
@@ -158,6 +208,8 @@ class Tensor:
         if self.gradient is None: 
             self.gradient = np.array(1)
             level = ""
+        if self.is_evaluated:
+            self.function.res = self.data
         assert self.gradient.shape == self.shape, "gradient's shape should equal to tensor shape"
         self.function.backward(self.gradient)
 

@@ -11,6 +11,7 @@ class Function:
     def __init__(self, *mem:Tensor):
         self.parents = list(mem)
         self.name: str = None
+        self.res: np.array = None
     
     def backward(self,grad:np.array):
         pass
@@ -46,6 +47,46 @@ class Sub(Function):
             mem.gradient = grad
             mem.backward()
 
+class Mul(Function):
+    def __init__(self,a:Tensor,b:Tensor):
+        super().__init__(a,b)
+        self.name = "mul"
+    
+    def backward(self,grad:np.array):
+        mem1, mem2 = self.parents
+        mem1.gradient = grad * mem2.numpy()
+        mem2.gradient = mem1.numpy() * grad
+        mem1.backward()
+        mem2.backward()
+
+class Div(Function):
+    def __init__(self,a:Tensor,b:Tensor):
+        super().__init__(a,b)
+        self.name = "div"
+    
+    def backward(self,grad:np.array):
+        """ 
+            c = b/a 
+            dc / db = 1/a
+            dc / da = -b/a**2
+        """
+        divdend, divsor = self.parents
+        divdend.gradient = 1/divsor.numpy()
+        divsor.gradient = -divdend/divsor.numpy()**2
+        divdend.backward()
+        divsor.backward()
+
+class Sqrt(Function):
+    def __init__(self, a: Tensor):
+        super().__init__(a)
+        self.name = "sqrt"
+    
+    def backward(self, grad:np.array):
+        # a = sqrt(b)
+        # da/db = -1/2*sqrt(b)
+        mem = self.parents[0]
+        mem.grad = -1/2*self.res
+
 class MatMul(Function):
     def __init__(self,a:Tensor,b:Tensor):
         super().__init__(a,b)
@@ -72,22 +113,58 @@ class MSELoss(Function):
 class Expand(Function):
     def __init__(self, a:Tensor):
         super().__init__(a)
-        self.name = "expd"
+        self.name = "expand"
     
     def backward(self,grad:np.array):
         mem = self.parents[0]
         mem.gradient = np.sum(grad,axis=0)
         mem.backward()
 
-class Max(Function):
+class Maximum(Function):
     def __init__(self, a:Tensor, gate: int):
         super().__init__(a)
-        self.name = "max"
+        self.name = "maximum"
         self.gate = gate
     
     def backward(self,grad:np.array):
         mem = self.parents[0]
-        mask = mem.data > self.gate
+        mask = mem.numpy() > self.gate
         mem.gradient = grad * mask
         mem.backward()
+
+class Exp(Function):
+    def __init__(self, a:Tensor):
+        super().__init__(a)
+        self.name = "exp"
     
+    def backward(self,grad:np.array):
+        mem = self.parents[0]
+        mem.gradient = grad * self.res
+        mem.backward()
+
+class Max(Function):
+    def __init__(self, a:Tensor, dim: int):
+        # (N, dim) -> (N,)
+        super().__init__(a)
+        self.name = "max"
+        self.dim = dim
+
+    def backward(self, grad: np.array):
+        # only works for dim=1
+        mem = self.parents[0]
+        mask = [mem[row]==max_val for row,max_val in enumerate(self.res)]
+        mem.gradient = grad * mask
+        mem.backward()
+
+class Sum(Function):
+    def __init__(self, a:Tensor, dim: int):
+        # (N, dim) -> (N,)
+        super().__init__(a)
+        self.name = "sum"
+        self.dim = dim
+
+    def backward(self, grad: np.array):
+        # only works for dim=1
+        mem = self.parents[0]
+        mem.gradient = grad
+        mem.backward()
