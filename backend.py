@@ -61,6 +61,7 @@ class GPU(Backend):
         self._define_func("cuda_copy_to_device", [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t], None)
         self._define_func("cuda_copy_to_host", [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t], None)
         self._define_func("matmul", [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int], None)
+        self._define_func("cutlass_mma", [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int], None)
         self._define_func("add", [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int], None)
         self._define_func("sub", [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int], None)
         self._define_func("expand", [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int], None)

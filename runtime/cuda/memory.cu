@@ -20,8 +20,10 @@ extern "C" void free_on_gpu(void* ptr) {
 
 extern "C" void cuda_copy_to_device(void* dst, const void* src, size_t size) {
     cudaMemcpy(dst, src, size, cudaMemcpyHostToDevice);
+    cudaDeviceSynchronize();
 }
 
 extern "C" void cuda_copy_to_host(void* dst, const void* src, size_t size) {
     cudaMemcpy(dst, src, size, cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
 }

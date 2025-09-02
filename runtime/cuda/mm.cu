@@ -1,5 +1,8 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
+#ifdef USE_CUTLASS
+#include <cutlass_helper.h>
+#endif
 
 extern "C" {
 
@@ -48,8 +51,26 @@ void matmul(const float* A, const float* B, float* C, int M, int N, int K) {
     if (err != cudaSuccess) {
         fprintf(stderr, "Kernel launch error: %s\n", cudaGetErrorString(err));
     }
-    cudaDeviceSynchronize();
 }
+#ifdef USE_CUTLASS
+void cutlass_mma(const float* A, const float* B, float* C, int M, int N, int K){
+    float alpha = 1;
+    float beta = 0;
+    int lda = K;
+    int ldb = N;
+    int ldc = N;
+    auto result = CutlassSgemmNN(N, M, K, alpha, B, ldb, A, lda, beta, C, ldc);
+
+  if (result != cudaSuccess) {
+    std::cerr << "CUTLASS GEMM kernel failed: "
+      << cudaGetErrorString(result) << std::endl;
+  }
+}
+#else
+void cutlass_mma(const float* A, const float* B, float* C, int M, int N, int K){
+    fprintf(stderr,  "CUTLASS NOT ENABLED, use USE_CUTLASS=1 during build\n");
+}
+#endif
 
 void add(const float* A, const float* B, float* C, int M, int N){
     dim3 block(32, 16);
@@ -60,7 +81,6 @@ void add(const float* A, const float* B, float* C, int M, int N){
     if (err != cudaSuccess) {
         fprintf(stderr, "Kernel launch error: %s\n", cudaGetErrorString(err));
     }
-    cudaDeviceSynchronize();
 }
 
 void sub(const float* A, const float* B, float* C, int M, int N){
@@ -72,7 +92,6 @@ void sub(const float* A, const float* B, float* C, int M, int N){
     if (err != cudaSuccess) {
         fprintf(stderr, "Kernel launch error: %s\n", cudaGetErrorString(err));
     }
-    cudaDeviceSynchronize();
 }
 
 void expand(const float* A, float* B, int M, int N){
@@ -84,6 +103,5 @@ void expand(const float* A, float* B, int M, int N){
     if (err != cudaSuccess) {
         fprintf(stderr, "Kernel launch error: %s\n", cudaGetErrorString(err));
     }
-    cudaDeviceSynchronize();
 }
 }

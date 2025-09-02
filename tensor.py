@@ -103,7 +103,7 @@ class Tensor:
             if tensor in visited: return
             visited.add(tensor)    
             if tensor.is_evaluated == False:
-                # only set is_evaluated when copy   the data to host
+                # only set is_evaluated when copy the data to host
                 self.backend.copyDTOH(tensor)
                 tensor.is_evaluated = True
             if cleanup:
