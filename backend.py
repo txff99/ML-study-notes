@@ -18,13 +18,13 @@ class CPU(Backend):
     def __init__(self):
         super().__init__()
         self.name = "cpu"
-        self.supported_ops = {OpType.ADD, OpType.SUB, OpType.MATMUL, OpType.EXPAND, OpType.MSELOSS, OpType.MAX}
+        self.supported_ops = {OpType.ADD, OpType.SUB, OpType.MATMUL, OpType.EXPAND, OpType.MSELOSS, OpType.MAX, OpType.TRANSPOSE, OpType.CONTIGUOUS}
     
     def execute(self, op: Op):
         optype: OpType = op.optype
         srcs: List[Tensor] = op.srcs
         dst: Tensor = op.dst
-        if dst.is_evaluated == True: return
+        if dst.is_realized == True: return
         # optype matching
         if optype == OpType.ADD:
             assert len(srcs) == 2, "srcs num does not match"
@@ -37,7 +37,14 @@ class CPU(Backend):
             dst.data = srcs[0].data @ srcs[1].data
         elif optype == OpType.EXPAND:
             assert len(srcs) == 1, "srcs num does not match"
-            dst.data = np.repeat(np.expand_dims(srcs[0].data,axis=0),dst.shape[0],axis=0)  
+            dst.data = np.broadcast_to(srcs[0].data, dst.shape)
+        elif optype == OpType.TRANSPOSE:
+            assert len(srcs) == 1, "srcs num does not match"
+            dst.data = srcs[0].data
+            dst.data.strides = dst.strides * dst.data.itemsize
+        elif optype == OpType.CONTIGUOUS:
+            assert len(srcs) == 1, "srcs num does not match"
+            dst.data = np.ascontiguousarray(srcs[0].data)
         elif optype == OpType.MSELOSS:
             assert len(srcs) == 1, "srcs num does not match"
             dst.data = np.mean(srcs[0].data**2)
@@ -90,7 +97,7 @@ class GPU(Backend):
     def copyDTOH(self, tensor: Tensor):
         assert tensor.backend.name == "gpu", "tensor should be on gpu"
         assert tensor.backend_ptr is not None, "tensor backend pointer not found"
-        if tensor.is_evaluated == False: tensor.data = np.zeros(tensor.shape, dtype=tensor.dtype)
+        if tensor.is_realized == False: tensor.data = np.zeros(tensor.shape, dtype=tensor.dtype)
         ptr = tensor.data.ctypes.data
         size = np.prod(tensor.shape) * tensor.data.itemsize
         self.lib.cuda_copy_to_host(ptr, tensor.backend_ptr, size)
@@ -110,7 +117,7 @@ class GPU(Backend):
         optype: OpType = op.optype
         srcs: List[Tensor] = op.srcs
         dst: Tensor = op.dst
-        if dst.is_evaluated == True: return
+        if dst.is_realized == True: return
         # optype matching
         if optype == OpType.MATMUL:
             assert len(srcs) == 2, "srcs num does not match"
@@ -135,10 +142,6 @@ class GPU(Backend):
                         dst.backend_ptr, 
                 srcs[0].shape[0], srcs[0].shape[1])
         elif optype == OpType.EXPAND:
-            assert len(srcs) == 1, "srcs num does not match"
-            self._gpu_alloc_assert(srcs, dst)
-            self.lib.expand(srcs[0].backend_ptr,
-                        dst.backend_ptr, 
-                dst.shape[0], dst.shape[1])
+            pass
         else:
             raise NotImplementedError(f"Operation '{optype}' is not implemented.")

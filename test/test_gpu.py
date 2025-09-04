@@ -13,7 +13,7 @@ class TestGPUAri(unittest.TestCase):
                     [1,3]])
         c = a @ b
         c.toGPU()
-        np.testing.assert_array_equal(c.evaluate(), np.array([[4,8],
+        np.testing.assert_array_equal(c.realize(), np.array([[4,8],
                                                 [10,18]]))
     
     def test_gpu_add(self):
@@ -23,7 +23,7 @@ class TestGPUAri(unittest.TestCase):
                     [1,5]])
         c = a + b
         c.toGPU()
-        np.testing.assert_array_equal(c.evaluate(), np.array([[3,5],
+        np.testing.assert_array_equal(c.realize(), np.array([[3,5],
                                                 [4,9]]))
     
     def test_gpu_sub(self):
@@ -33,13 +33,13 @@ class TestGPUAri(unittest.TestCase):
                     [1,5]])
         c = a - b
         c.toGPU()
-        np.testing.assert_array_equal(c.evaluate(), np.array([[-1,-1],
+        np.testing.assert_array_equal(c.realize(), np.array([[-1,-1],
                                                 [2,-1]]))
     def test_gpu_expand(self):
         a = Tensor([1,2])
         c = a.expand(2)
         c.toGPU()
-        np.testing.assert_array_equal(c.evaluate(), np.array([[1,2],
+        np.testing.assert_array_equal(c.realize(), np.array([[1,2],
                                                 [1,2]]))
 
 if __name__ == "__main__":

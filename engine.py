@@ -19,6 +19,7 @@ class Engine:
             optype: OpType = op.optype
             srcs: List[Tensor] = op.srcs
             dst: Tensor = op.dst
-            if dst.is_evaluated == True: continue
+            if dst.is_realized == True: continue
             assert optype in self.backend.supported_ops, "op not supported by backend"
             self.backend.execute(op)
+            dst.is_realized = True

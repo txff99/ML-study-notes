@@ -111,14 +111,36 @@ class MSELoss(Function):
         mem.backward()
 
 class Expand(Function):
-    def __init__(self, a:Tensor):
+    def __init__(self, a:Tensor, expanded_shape: tuple):
         super().__init__(a)
         self.name = "expand"
+        self.expanded_dims = [i for i,_ in enumerate(expanded_shape) if expanded_shape[i]!=a.shape[i]]
     
     def backward(self,grad:np.array):
         mem = self.parents[0]
-        mem.gradient = np.sum(grad,axis=0)
+        mem.gradient = np.sum(grad,axis=self.expanded_dims, keepdims=True)
         mem.backward()
+
+class Transpose(Function):
+    def __init__(self, a:Tensor, dim1:int, dim2:int):
+        super().__init__(a)
+        self.name = "transpose"
+        self.dim1 = dim1
+        self.dim2 = dim2
+    
+    def backward(self, grad:np.array):
+        mem=self.parents[0]
+        mem.gradient = grad.transpose(dim1,dim2)
+        mem.backward()
+
+class Contiguous(Function):
+    def __init__(self, a:Tensor):
+        super().__init__(a)
+        self.name = "contiguous"
+    
+    def backward(self, grad:np.array):
+        mem=self.parents[0]
+        raise NotImplementedError
 
 class Maximum(Function):
     def __init__(self, a:Tensor, gate: int):
