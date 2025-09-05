@@ -1,0 +1,44 @@
+import numpy as np
+import sys
+import unittest
+
+sys.path.append("../..")
+from tensor import Tensor
+
+class TestContiguous(unittest.TestCase):
+    def test_contiguous_unchanged(self):
+        raw = np.random.rand(3,1,3)
+        a = Tensor(raw)
+        b = a.contiguous()
+        self.assertTrue(a is b)
+
+    def test_contiguous_unchanged_after_transpose(self):
+        raw = np.random.rand(3,1,3)
+        a = Tensor(raw)
+        b = a.transpose(2,1).transpose(2,1)
+        self.assertTrue(b.is_contiguous()==True)
+    
+    @unittest.skip("not implemented")
+    def test_contiguous_unchanged_after_slicing(self):
+        pass
+
+    def test_contiguous_after_transpose(self):
+        raw = np.random.rand(3,1,3)
+        a = Tensor(raw)
+        b = a.transpose(2,1)
+        self.assertTrue(b.is_contiguous()==False)
+        c = b.contiguous()
+        self.assertTrue(c.is_contiguous()==True)
+        self.assertTrue(c.is_realized==False)
+
+    def test_contiguous_after_expand(self):
+        raw = np.random.rand(3,1,3)
+        a = Tensor(raw)
+        b = a.expand(3,2,3)
+        self.assertTrue(b.is_contiguous()==False)
+        c = b.contiguous()
+        self.assertTrue(c is not b)
+        self.assertTrue(c.is_contiguous()==True)
+
+if __name__ == "__main__":
+    unittest.main()

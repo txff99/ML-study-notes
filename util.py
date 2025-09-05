@@ -1,4 +1,4 @@
-def get_default_strides(shape: tuple) -> list:
+def get_default_strides(shape: tuple|list) -> list:
     suffix = 1
     strides = []
     for i in reversed(shape):

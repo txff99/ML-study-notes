@@ -51,25 +51,33 @@ class Op:
         return f"{self.optype.name}({', '.join(str(id(s))[-4:] for s in self.srcs)} -> {str(id(self.dst))[-4:]})"
 
 class Tensor:
-    def __init__(self, data=None, function=None, shape: tuple | ShapeTracker=None, 
-                    dtype=np.float32, strides = None, 
-                    is_realized=True, is_contiguous=True):
+    def __init__(self, data=None, function=None, shape: tuple|list=None, 
+                    dtype=np.float32, strides:tuple|list = None, 
+                    is_realized=True):
         from backend import CPU
         self.data = np.asarray(data, dtype=dtype)
         self.dtype = dtype
         self.gradient: np.array = None
         self.function = function
-        self.shape = shape if shape is not None else self.data.shape 
-        self.strides = strides
+        self._shape = list(shape) if shape is not None else self.data.shape 
+        self._strides = list(strides) if strides is not None else None
         self.backend = CPU()
         self.backend_ptr = None
         self.is_realized = is_realized
-        self.is_contiguous = is_contiguous
     
+    @property
+    def shape(self):
+        return tuple(self._shape)
+
+    @property
+    def strides(self):
+        return tuple(self._strides) if self._strides is not None else get_default_strides(self.shape)
+
     def numpy(self) -> np.array:
-        if not self.is_realized:
-            self.realize()
-        return self.data
+        contiguous_tensor = self.contiguous()
+        if not contiguous_tensor.is_realized:
+            contiguous_tensor.realize()
+        return contiguous_tensor.data
 
     def lower(self) -> List(Op): 
         # lower a dag to ops
@@ -124,14 +132,13 @@ class Tensor:
         dfs(self)        
         self.backend = CPU()
 
-    def realize(self, cleanup_after_eval=True) -> np.array:
+    def realize(self, cleanup_after_eval=True):
         from engine import Engine
         engine = Engine(self.backend, self.lower())
         engine.run()
         if self.backend.name == "gpu":
             # gpu need cleanup
             self.toCPU(cleanup=cleanup_after_eval)
-        return self.contiguous().numpy()
 
     def __add__(self, other: Tensor) -> Tensor:
         from function import Add
@@ -196,13 +203,14 @@ class Tensor:
     def transpose(self, dim1, dim2) -> Tensor:
         from function import Transpose
         assert dim1 < len(self.shape) and dim2 < len(self.shape), "dimension out of bound"
-        new_strides = self.strides
-        new_shape = self.shape
+        new_shape = list(self.shape)
         new_shape[dim1], new_shape[dim2] = self.shape[dim2], self.shape[dim1]
-        if new_strides is None:
-            new_strides = get_default_strides(new_shape)
+        new_strides = list(self.strides) if self.strides is not None else get_default_strides(new_shape)
         new_strides[dim1], new_strides[dim2] = new_strides[dim2], new_strides[dim1]
         return Tensor(None, function=Transpose(self,dim1,dim2),shape=new_shape,strides=new_strides, is_realized=False)
+
+    def is_contiguous(self):
+        return (self._strides is None or (self._strides == get_default_strides(self.shape)))
 
     def contiguous(self) -> Tensor:
         """ 
@@ -220,7 +228,7 @@ class Tensor:
         map the new tensor's data using the transformed strides
         """
         from function import Contiguous
-        if self.strides is None or self.strides == get_default_strides(self.shape):
+        if self.is_contiguous():
             return self
         return Tensor(None,function=Contiguous(self),shape=self.shape,is_realized=False)
 
