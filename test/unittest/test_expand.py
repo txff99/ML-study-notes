@@ -11,7 +11,6 @@ class TestExpand(unittest.TestCase):
         raw = np.random.rand(3,1,3)
         a = Tensor(raw)
         b = a.expand(3,2,3)
-        diff = np.abs(b.numpy() - raw.repeat(2,axis=1)).max()
         self.assertTrue(np.allclose(b.numpy(),raw.repeat(2,axis=1)))
     
     def test_multidim_success(self):

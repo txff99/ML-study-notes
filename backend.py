@@ -41,7 +41,6 @@ class CPU(Backend):
         elif optype == OpType.TRANSPOSE:
             assert len(srcs) == 1, "srcs num does not match"
             dst.data = srcs[0].data
-            dst.data.strides = dst.strides * dst.data.itemsize
         elif optype == OpType.CONTIGUOUS:
             assert len(srcs) == 1, "srcs num does not match"
             dst.data = np.ascontiguousarray(srcs[0].data)

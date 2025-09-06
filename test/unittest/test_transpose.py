@@ -5,27 +5,32 @@ import unittest
 sys.path.append("../..")
 from tensor import Tensor
 
-class TestExpand(unittest.TestCase):
-    def test_singledim_success(self):
+class TestTranspose(unittest.TestCase):
+    def test_strides_shape_data(self):
         np.random.seed(1)
         raw = np.random.rand(3,1,3)
         a = Tensor(raw)
-        b = a.expand(3,2,3)
-        diff = np.abs(b.numpy() - raw.repeat(2,axis=1)).max()
-        self.assertTrue(np.allclose(b.numpy(),raw.repeat(2,axis=1)))
+        b = a.transpose(2,1)
+        self.assertTrue(b.shape==(3,3,1))
+        self.assertTrue(b.strides==(3,1,3))
+        b.realize()
+        self.assertTrue(np.allclose(a.data,b.data))
     
-    def test_multidim_success(self):
+    def test_transpose_twice(self):
         np.random.seed(1)
         raw = np.random.rand(3,1,3,1)
         a = Tensor(raw)
-        b = a.expand(3,4,3,3)
-        self.assertTrue(np.allclose(b.numpy(),raw.repeat(4,axis=1).repeat(3,axis=3)))
+        b = a.transpose(2,1).transpose(2,1)
+        self.assertTrue(b.shape==(3,1,3,1))
+        self.assertTrue(b.strides==(3,3,1,1))
+        b.realize()
+        self.assertTrue(np.allclose(a.data,b.data))
     
     @unittest.expectedFailure
     def test_invaliddim_fail(self):
         raw = np.random.rand(3,1,3)
         a = Tensor(raw)
-        b = a.expand(3,2,6)
+        b = a.transpose(3,1)
 
 
 if __name__ == "__main__":
