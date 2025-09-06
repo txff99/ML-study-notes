@@ -43,7 +43,7 @@ class CPU(Backend):
             dst.data = srcs[0].data
         elif optype == OpType.CONTIGUOUS:
             assert len(srcs) == 1, "srcs num does not match"
-            dst.data = np.ascontiguousarray(srcs[0].data)
+            dst.data = dst.function.contiguous_python_impl(srcs[0]).reshape(dst.shape)
         elif optype == OpType.MSELOSS:
             assert len(srcs) == 1, "srcs num does not match"
             dst.data = np.mean(srcs[0].data**2)

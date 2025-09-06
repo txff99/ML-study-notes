@@ -7,12 +7,14 @@ from tensor import Tensor
 
 class TestContiguous(unittest.TestCase):
     def test_contiguous_unchanged(self):
+        np.random.seed(1)
         raw = np.random.rand(3,1,3)
         a = Tensor(raw)
         b = a.contiguous()
         self.assertTrue(a is b)
 
     def test_contiguous_unchanged_after_transpose(self):
+        np.random.seed(1)
         raw = np.random.rand(3,1,3)
         a = Tensor(raw)
         b = a.transpose(2,1).transpose(2,1)
@@ -23,6 +25,7 @@ class TestContiguous(unittest.TestCase):
         pass
 
     def test_contiguous_after_transpose(self):
+        np.random.seed(1)
         raw = np.random.rand(3,1,3)
         a = Tensor(raw)
         b = a.transpose(2,1)
@@ -32,6 +35,7 @@ class TestContiguous(unittest.TestCase):
         self.assertTrue(c.is_realized==False)
 
     def test_contiguous_after_expand(self):
+        np.random.seed(1)
         raw = np.random.rand(3,1,3)
         a = Tensor(raw)
         b = a.expand(3,2,3)
@@ -39,6 +43,14 @@ class TestContiguous(unittest.TestCase):
         c = b.contiguous()
         self.assertTrue(c is not b)
         self.assertTrue(c.is_contiguous()==True)
+    
+    def test_contiguous_python_impl(self):
+        from function import Contiguous
+        np.random.seed(1)
+        raw = np.random.rand(3,1,3)
+        a = Tensor(raw,strides=(3,1,3)) # make a fake tranposed tensor
+        b = Contiguous.contiguous_python_impl(a)
+        self.assertTrue(np.allclose(b, raw.transpose(0,2,1).flatten()))
 
 if __name__ == "__main__":
     unittest.main()

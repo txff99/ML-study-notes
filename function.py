@@ -137,6 +137,31 @@ class Contiguous(Function):
     def __init__(self, a:Tensor):
         super().__init__(a)
         self.name = "contiguous"
+
+    @staticmethod
+    def contiguous_python_impl(src: Tensor) -> np.array:
+        """
+        this function return a flatten buffer
+        """
+        from util import get_default_strides
+        shape = src.shape
+        new_data = np.zeros(shape).flatten()
+        assert src.is_realized, "src tensor need to be realized before making a contiguous tensor"
+        old_data = src.data.flatten()
+        for ptr in range(np.prod(shape)):
+            # map each element in old data to new data
+            indices = np.zeros(len(shape))
+            rem = ptr
+            # compute index for new data
+            for i,s in enumerate(src.strides):
+                if s == 0: 
+                    indices[i] = 0    
+                else:
+                    indices[i] = rem // s
+                    rem%=s
+            old_data_ptr = np.dot(indices, src.strides).astype(int)
+            new_data[ptr] = old_data[old_data_ptr]
+        return new_data
     
     def backward(self, grad:np.array):
         mem=self.parents[0]
