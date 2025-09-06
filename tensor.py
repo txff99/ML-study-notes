@@ -51,15 +51,16 @@ class Op:
         return f"{self.optype.name}({', '.join(str(id(s))[-4:] for s in self.srcs)} -> {str(id(self.dst))[-4:]})"
 
 class Tensor:
-    def __init__(self, data=None, function=None, shape: tuple|list=None, 
+    def __init__(self, data:np.array|tuple|list=None, function=None, shape: tuple|list=None, 
                     dtype=np.float32, strides:tuple|list = None, 
                     is_realized=True):
+        assert data is not None or shape is not None, "at least one of the data or shape should be given"
         from backend import CPU
-        self.data = np.asarray(data, dtype=dtype)
+        self.data = np.asarray(data, dtype=dtype).flatten() # data will always be flatten
         self.dtype = dtype
         self.gradient: np.array = None
         self.function = function
-        self._shape = list(shape) if shape is not None else self.data.shape 
+        self._shape = list(shape) if shape is not None else list(data.shape)
         self._strides = list(strides) if strides is not None else None
         self.backend = CPU()
         self.backend_ptr = None
@@ -77,7 +78,7 @@ class Tensor:
         contiguous_tensor = self.contiguous()
         if not contiguous_tensor.is_realized:
             contiguous_tensor.realize()
-        return contiguous_tensor.data
+        return contiguous_tensor.data.reshape(self.shape)
 
     def lower(self) -> List(Op): 
         # lower a dag to ops
@@ -176,9 +177,9 @@ class Tensor:
         from function import MatMul
         if isinstance(other, Tensor):
             # Ensure that matrix dimensions are compatible for multiplication
-            if self.data.shape[-1] != other.data.shape[0]:
-                raise ValueError(f"Incompatible shapes for matrix multiplication: {self.data.shape} and {other.data.shape}")
-            return Tensor(None,function=MatMul(self,other), shape=(self.data.shape[0], other.data.shape[1]), is_realized=False)
+            if self.shape[-1] != other.shape[0]:
+                raise ValueError(f"Incompatible shapes for matrix multiplication: {self.shape} and {other.shape}")
+            return Tensor(None,function=MatMul(self,other), shape=(self.shape[0], other.shape[1]), is_realized=False)
         else:
             raise TypeError("The operand must be an instance of Tensor")
     
@@ -213,20 +214,6 @@ class Tensor:
         return (self._strides is None or (self._strides == get_default_strides(self.shape)))
 
     def contiguous(self) -> Tensor:
-        """ 
-        (1,3,1) -> (3,3,1) stride (0,1,1)
-        (3,1,1)
-        for ptr in range(np.prod(shape)):
-            indices = np.zeros(len(shape))
-            rem = ptr
-            # compute index for ptr
-            for i,s in enumerate(get_default_stride(shape)):
-                indices[i] = rem // s
-                rem%=s
-            old_data_ptr = np.dot(indices, strides)
-            data[ptr] = old_data[old_data_ptr]
-        map the new tensor's data using the transformed strides
-        """
         from function import Contiguous
         if self.is_contiguous():
             return self
@@ -263,7 +250,7 @@ class Tensor:
         pass
     
     def __repr__(self):
-        return f"Tensor(data= {self.data}, shape={self.shape}, grad={self.gradient}, function: {self.function}, strides: {self.strides}, is_realized: {self.is_realized})"
+        return f"Tensor(data= {self.data.reshape(self.shape)}, shape={self.shape}, grad={self.gradient}, function={self.function}, strides={self.strides}, is_realized={self.is_realized})"
     
     def backward(self, level:str = None):
         if self.function is None: return

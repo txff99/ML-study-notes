@@ -44,12 +44,12 @@ class TestContiguous(unittest.TestCase):
         self.assertTrue(c is not b)
         self.assertTrue(c.is_contiguous()==True)
     
-    def test_contiguous_python_impl(self):
-        from function import Contiguous
+    def test_contiguous_numpy_impl(self):
+        from runtime.numpy.contiguous import contiguous_numpy_impl
         np.random.seed(1)
         raw = np.random.rand(3,1,3)
-        a = Tensor(raw,strides=(3,1,3)) # make a fake tranposed tensor
-        b = Contiguous.contiguous_python_impl(a)
+        a = Tensor(raw,shape=(3,3,1),strides=(3,1,3)) # make a fake tranposed tensor
+        b = contiguous_numpy_impl(a)
         self.assertTrue(np.allclose(b, raw.transpose(0,2,1).flatten()))
 
 if __name__ == "__main__":

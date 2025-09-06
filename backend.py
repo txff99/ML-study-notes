@@ -34,16 +34,17 @@ class CPU(Backend):
             dst.data = srcs[0].data - srcs[1].data
         elif optype == OpType.MATMUL:
             assert len(srcs) == 2, "srcs num does not match"
-            dst.data = srcs[0].data @ srcs[1].data
+            dst.data = (srcs[0].data.reshape(srcs[0].shape) @ srcs[1].data.reshape(srcs[1].shape)).flatten()
         elif optype == OpType.EXPAND:
             assert len(srcs) == 1, "srcs num does not match"
-            dst.data = np.broadcast_to(srcs[0].data, dst.shape)
+            dst.data = srcs[0].data
         elif optype == OpType.TRANSPOSE:
             assert len(srcs) == 1, "srcs num does not match"
             dst.data = srcs[0].data
         elif optype == OpType.CONTIGUOUS:
             assert len(srcs) == 1, "srcs num does not match"
-            dst.data = dst.function.contiguous_python_impl(srcs[0]).reshape(dst.shape)
+            from runtime.numpy.contiguous import contiguous_numpy_impl
+            dst.data = contiguous_numpy_impl(srcs[0])
         elif optype == OpType.MSELOSS:
             assert len(srcs) == 1, "srcs num does not match"
             dst.data = np.mean(srcs[0].data**2)
