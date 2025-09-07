@@ -19,7 +19,6 @@ class TestAri(unittest.TestCase):
         self.assertTrue(np.allclose(c.numpy(),raw1+raw2))
         self.assertTrue(np.allclose(d.numpy(),raw1-raw2))
     
-    
     def test_noncontiguous_arithmetic(self):
         np.random.seed(1)
         raw1 = np.random.rand(3,1,3)

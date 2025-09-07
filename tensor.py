@@ -167,6 +167,7 @@ class Tensor:
     def __matmul__(self, other: Tensor) -> Tensor:
         from function import MatMul
         assert isinstance(other, Tensor), "The operand must be an instance of Tensor"
+        assert len(self.shape) == 2 and len(other.shape)==2, "matmul only support 2 dim as input"
         assert self.shape[-1] == other.shape[0], f"Incompatible shapes for matrix multiplication: {self.shape} and {other.shape}"
         return Tensor(None,function=MatMul(self,other), shape=(self.shape[0], other.shape[1]), is_realized=False)
     
