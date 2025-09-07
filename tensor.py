@@ -51,7 +51,7 @@ class Op:
         return f"{self.optype.name}({', '.join(str(id(s))[-4:] for s in self.srcs)} -> {str(id(self.dst))[-4:]})"
 
 class Tensor:
-    def __init__(self, data:np.array|tuple|list=None, function=None, shape: tuple|list=None, 
+    def __init__(self, data:np.array|tuple|list|int|float=None, function=None, shape: tuple|list=None, 
                     dtype=np.float32, strides:tuple|list = None, 
                     is_realized=True):
         assert data is not None or shape is not None, "at least one of the data or shape should be given"
@@ -60,7 +60,7 @@ class Tensor:
         self.dtype = dtype
         self.gradient: np.array = None
         self.function = function
-        self._shape = list(shape) if shape is not None else list(data.shape)
+        self._shape = list(shape) if shape is not None else list(np.asarray(data).shape)
         self._strides = list(strides) if strides is not None else None
         self.backend = CPU()
         self.backend_ptr = None
@@ -82,16 +82,10 @@ class Tensor:
 
     def lower(self) -> List(Op): 
         # lower a dag to ops
-        visited = set()
-        ops = []
-        def dfs(tensor: Tensor):
-            if tensor.function is None: return
-            if tensor in visited: return
-            visited.add(tensor)    
-            for mem in tensor.function.parents:
-                dfs(mem)
-            ops.append(Op(FUNCTION_TO_OPTYPE[tensor.function.name], tensor.function.parents, tensor))
-        dfs(self)
+        from graph import Graph
+        g = Graph(self)
+        tensors = g.toposort()
+        ops = [Op(FUNCTION_TO_OPTYPE[tensor.function.name], tensor.function.parents, tensor) for tensor in tensors]
         return ops
     
     def toGPU(self):
@@ -103,12 +97,12 @@ class Tensor:
         visited = set()
         def dfs(tensor: Tensor):
             if tensor in visited: return
+            if tensor.function is None: return
             tensor.backend = self.backend
             visited.add(tensor)
             self.backend.alloc(tensor)
             if tensor.is_realized == True:
                 self.backend.copyHTOD(tensor)
-            if tensor.function is None: return
             for mem in tensor.function.parents:
                 dfs(mem)
         dfs(self)        
@@ -121,13 +115,13 @@ class Tensor:
         def dfs(tensor: Tensor):
             if tensor in visited: return
             visited.add(tensor)    
+            if tensor.function is None: return
             if tensor.is_realized == False:
                 # only set is_realized when copy the data to host
                 self.backend.copyDTOH(tensor)
                 tensor.is_realized = True
             if cleanup:
                 self.backend.free(tensor)
-            if tensor.function is None: return
             for mem in tensor.function.parents:
                 dfs(mem)
         dfs(self)        
@@ -144,44 +138,32 @@ class Tensor:
     def __add__(self, other: Tensor) -> Tensor:
         from function import Add
         assert self.shape==other.shape , "tensor shape is not the same"
-        if isinstance(other, Tensor):
-            return Tensor(None, function=Add(self,other), shape=other.shape ,is_realized=False)
-        else:
-            raise TypeError("The operand must be an instance of Tensor")
+        assert isinstance(other, Tensor), "The operand must be an instance of Tensor"
+        return Tensor(None, function=Add(self,other), shape=other.shape ,is_realized=False)
     
     def __sub__(self, other:Tensor) -> Tensor:
         from function import Sub
         assert self.shape==other.shape , "tensor shape is not the same"
-        if isinstance(other, Tensor):
-            return Tensor(None,function=Sub(self,other), shape=other.shape,is_realized=False)
-        else:
-            raise TypeError("The operand must be an instance of Tensor")
+        assert isinstance(other, Tensor), "The operand must be an instance of Tensor"
+        return Tensor(None,function=Sub(self,other), shape=other.shape,is_realized=False)
     
     def __mul__(self, other:Tensor) -> Tensor:
         from function import Mul
         assert self.shape==other.shape , "tensor shape is not the same"
-        if isinstance(other, Tensor):
-            return Tensor(None,function=Mul(self,other), shape=other.shape,is_realized=False)
-        else:
-            raise TypeError("The operand must be an instance of Tensor")
+        assert isinstance(other, Tensor), "The operand must be an instance of Tensor"
+        return Tensor(None,function=Mul(self,other), shape=other.shape,is_realized=False)
 
     def __div__(self, other:Tensor) -> Tensor:
         from function import Div
         assert self.shape==other.shape , "tensor shape is not the same"
-        if isinstance(other, Tensor):
-            return Tensor(None,function=Div(self,other), shape=other.shape,is_realized=False)
-        else:
-            raise TypeError("The operand must be an instance of Tensor")
+        assert isinstance(other, Tensor), "The operand must be an instance of Tensor"
+        return Tensor(None,function=Div(self,other), shape=other.shape,is_realized=False)
 
     def __matmul__(self, other: Tensor) -> Tensor:
         from function import MatMul
-        if isinstance(other, Tensor):
-            # Ensure that matrix dimensions are compatible for multiplication
-            if self.shape[-1] != other.shape[0]:
-                raise ValueError(f"Incompatible shapes for matrix multiplication: {self.shape} and {other.shape}")
-            return Tensor(None,function=MatMul(self,other), shape=(self.shape[0], other.shape[1]), is_realized=False)
-        else:
-            raise TypeError("The operand must be an instance of Tensor")
+        assert isinstance(other, Tensor), "The operand must be an instance of Tensor"
+        assert self.shape[-1] == other.shape[0], f"Incompatible shapes for matrix multiplication: {self.shape} and {other.shape}"
+        return Tensor(None,function=MatMul(self,other), shape=(self.shape[0], other.shape[1]), is_realized=False)
     
     def expand(self, *expanded_shape: tuple[uint8]) -> Tensor:
         """

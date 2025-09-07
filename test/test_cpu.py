@@ -10,11 +10,9 @@ class TestCPUAri(unittest.TestCase):
         a = Tensor(1)
         b = Tensor(2)
         c = a + b
-        c.realize()
         d = a - b
-        d.realize()
-        self.assertEqual(c.data, 3)
-        self.assertEqual(d.data, -1)
+        self.assertTrue(np.allclose(c.numpy(), np.array(3)))
+        self.assertTrue(np.allclose(d.numpy(), np.array(-1)))
     
     def test_cpu_matmul(self):
         a = Tensor([[1,2],
@@ -22,8 +20,8 @@ class TestCPUAri(unittest.TestCase):
         b = Tensor([[2],
                     [1]])
         c = a @ b
-        np.testing.assert_array_equal(c.realize(), np.array([[4],
-                                                [10]]))
+        self.assertTrue(np.allclose(c.numpy(), np.array([[4],
+                                                [10]])))
     
     def test_cpu_expand(self):
         a = Tensor([1])
