@@ -55,6 +55,8 @@ class Tensor:
                     dtype=np.float32, strides:tuple|list = None, 
                     is_realized=True):
         assert data is not None or shape is not None, "at least one of the data or shape should be given"
+        if data is not None and shape is not None:
+            np.prod(data.shape)==np.prod(shape), "data should match shape"
         from backend import CPU
         self.data = np.asarray(data, dtype=dtype).flatten() # data will always be flatten
         self.dtype = dtype
@@ -84,6 +86,9 @@ class Tensor:
         # lower a dag to ops
         from graph import Graph
         g = Graph(self)
+        if self.backend.name == "cpu":
+            from graph import add_contiguous_before_ari
+            g.rewrite(add_contiguous_before_ari)
         tensors = g.toposort()
         ops = [Op(FUNCTION_TO_OPTYPE[tensor.function.name], tensor.function.parents, tensor) for tensor in tensors]
         return ops
@@ -232,7 +237,7 @@ class Tensor:
         pass
     
     def __repr__(self):
-        return f"Tensor(data= {self.data.reshape(self.shape)}, shape={self.shape}, grad={self.gradient}, function={self.function}, strides={self.strides}, is_realized={self.is_realized})"
+        return f"Tensor(data={self.data}, shape={self.shape}, grad={self.gradient}, function={self.function}, strides={self.strides}, is_realized={self.is_realized})"
     
     def backward(self, level:str = None):
         if self.function is None: return

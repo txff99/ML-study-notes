@@ -19,11 +19,6 @@ class TestGraph(unittest.TestCase):
         self.assertEqual(linearized,gt_linearized)
     
     def test_graph_constructor_visited(self):
-        #   a  b
-        # a  c  b
-        #  d  e
-        #    f
-        #  c is visited so it only presents once
         a = Tensor(1)
         b = Tensor(2)
         c = a + b
@@ -32,7 +27,7 @@ class TestGraph(unittest.TestCase):
         f = d + e
         g = Graph(f)
         linearized: list[Tensor] = g.toposort()
-        gt_linearized = [c, d, e, f]
+        gt_linearized = [c, d, e, f] # c is visited so it only presents once
         self.assertEqual(linearized,gt_linearized)
     
     def test_graph_rewriter(self):
@@ -46,6 +41,19 @@ class TestGraph(unittest.TestCase):
         g.rewrite(realize_tensor_pass)
         self.assertTrue(c.is_realized==True)
         self.assertTrue(d.is_realized==True)
+    
+    def test_graph_add_contiguous(self):
+        print("Start test_graph_add_contiguous")
+        from graph import add_contiguous_before_ari
+        a = Tensor(None, shape=(3,2,3),strides=(6,0,3),is_realized=False)
+        b = Tensor(None, shape=(3,2,3),strides=(6,0,3),is_realized=False)
+        self.assertTrue(a.is_contiguous()==False)
+        c = a + b
+        g = Graph(c)
+        g.rewrite(add_contiguous_before_ari)
+        linearized = g.toposort()
+        self.assertTrue(len(linearized)==3)
+        self.assertTrue(linearized[1].is_contiguous()==True and linearized[2].is_contiguous()==True)
 
 if __name__ == "__main__":
     unittest.main()
