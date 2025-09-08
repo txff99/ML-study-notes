@@ -216,7 +216,7 @@ class Tensor:
 
     def exp(self) -> Tensor:
         from function import Exp
-        return Tensor(None, functon=Exp(self), shape=self.shape, is_realized=False)
+        return Tensor(None, function=Exp(self), shape=self.shape, is_realized=False)
 
     def sqrt(self) -> Tensor:
         from function import Sqrt
