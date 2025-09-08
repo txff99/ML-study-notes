@@ -57,7 +57,7 @@ def alloc_tensor_pass(tensor: Tensor, args: tuple[Backend]):
         backend.copyHTOD(tensor)
 
 def add_contiguous_before_ari(tensor: Tensor, args=None):
-    arithmetic_funcs = {"add","sub","matmul","mse","max","mul","div","exp","sum","sqrt"}
+    arithmetic_funcs = {"add","sub","matmul","maximum","mse","max","mul","div","exp","sum","sqrt"}
     if tensor.function is not None and tensor.function.name in arithmetic_funcs:
         # replace tensor parent with parent.contiguous
         for i,_ in enumerate(tensor.function.parents):

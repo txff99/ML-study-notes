@@ -18,7 +18,9 @@ class CPU(Backend):
     def __init__(self):
         super().__init__()
         self.name = "cpu"
-        self.supported_ops = {OpType.ADD, OpType.SUB, OpType.MATMUL, OpType.EXPAND, OpType.MSELOSS, OpType.MAX, OpType.TRANSPOSE, OpType.CONTIGUOUS}
+        self.supported_ops = {OpType.ADD, OpType.SUB, OpType.MATMUL, OpType.EXPAND, 
+                            OpType.MSELOSS, OpType.MAX, OpType.TRANSPOSE, OpType.CONTIGUOUS, 
+                            OpType.MAXIMUM, OpType.SUM}
     
     def execute(self, op: Op):
         optype: OpType = op.optype
@@ -48,11 +50,15 @@ class CPU(Backend):
         elif optype == OpType.MSELOSS:
             assert len(srcs) == 1, "srcs num does not match"
             dst.data = np.mean(srcs[0].data**2)
-        elif optype == OpType.MAX:
+        elif optype == OpType.MAXIMUM:
             assert len(srcs) == 1, "srcs num does not match"
             gate = dst.function.gate
             mask = srcs[0].data > gate
             dst.data = srcs[0].data * mask
+        elif optype == OpType.MAX:
+            dst.data = np.max(srcs[0].data.reshape(srcs[0].shape), axis=dst.function.dim).flatten()
+        elif optype == OpType.SUM:
+            dst.data = np.sum(srcs[0].data.reshape(srcs[0].shape), axis=dst.function.dim).flatten()
         else:
             raise NotImplementedError(f"Operation '{optype}' is not implemented.")
 

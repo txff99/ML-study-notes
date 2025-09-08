@@ -223,10 +223,12 @@ class Tensor:
         return Tensor(None, function=Sqrt(self), shape=self.shape, is_realized=False)
 
     def max(self, dim:int) -> Tensor:
+        assert dim < len(self.shape)
         from function import Max
         return Tensor(None, function=Max(self, dim), shape=self.shape[:dim] + self.shape[dim+1:], is_realized=False)
     
     def sum(self, dim:int) -> Tensor:
+        assert dim < len(self.shape)
         from function import Sum
         return Tensor(None, function=Sum(self, dim), shape=self.shape[:dim] + self.shape[dim+1:], is_realized=False)
     

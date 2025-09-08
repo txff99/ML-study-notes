@@ -15,7 +15,6 @@ class TestAri(unittest.TestCase):
         b = Tensor(raw2)
         c = a+b
         d = a-b
-        e = a*b
         self.assertTrue(np.allclose(c.numpy(),raw1+raw2))
         self.assertTrue(np.allclose(d.numpy(),raw1-raw2))
     
