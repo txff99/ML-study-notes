@@ -23,6 +23,7 @@ class OpType(Enum):
     EXPAND = 12
     TRANSPOSE = 13
     CONTIGUOUS = 14
+    INDEXGET = 15
 
 FUNCTION_TO_OPTYPE = {
     "add": OpType.ADD,
@@ -38,7 +39,8 @@ FUNCTION_TO_OPTYPE = {
     "sqrt": OpType.SQRT,
     "expand": OpType.EXPAND,
     "transpose": OpType.TRANSPOSE,
-    "contiguous": OpType.CONTIGUOUS
+    "contiguous": OpType.CONTIGUOUS,
+    "index_get": OpType.INDEXGET,
 }
 
 class Op:
@@ -52,7 +54,7 @@ class Op:
 
 class Tensor:
     def __init__(self, data:np.array|tuple|list|int|float=None, function=None, shape: tuple|list=None, 
-                    dtype=np.float32, strides:tuple|list = None, 
+                    dtype=np.float32, strides:tuple|list = None, offset:int=None, 
                     is_realized=True):
         assert data is not None or shape is not None, "at least one of the data or shape should be given"
         if data is not None and shape is not None:
@@ -64,6 +66,7 @@ class Tensor:
         self.function = function
         self._shape = list(shape) if shape is not None else list(np.asarray(data).shape)
         self._strides = list(strides) if strides is not None else None
+        self._offset = offset
         self.backend = CPU()
         self.backend_ptr = None
         self.is_realized = is_realized
@@ -76,6 +79,10 @@ class Tensor:
     def strides(self):
         return tuple(self._strides) if self._strides is not None else get_default_strides(self.shape)
 
+    @property
+    def offset(self):
+        return self._offset
+    
     def numpy(self) -> np.array:
         contiguous_tensor = self.contiguous()
         if not contiguous_tensor.is_realized:
@@ -198,8 +205,31 @@ class Tensor:
         new_strides[dim1], new_strides[dim2] = new_strides[dim2], new_strides[dim1]
         return Tensor(None, function=Transpose(self,dim1,dim2),shape=new_shape,strides=new_strides, is_realized=False)
 
+    def __getitem__(self, key) -> Tensor:
+        from function import IndexGet
+        if not isinstance(key, tuple):
+            key = (key,) 
+        offset = 0
+        new_strides = list(self.strides)
+        new_shape = list(self.shape)
+        assert len(key) == len(self.shape)
+        for i,idx in enumerate(reversed(key)):
+            i = len(key) - i - 1
+            if isinstance(idx, slice):
+                start, end, step = idx.indices(self.shape[i])
+                assert start < end, "invalid index"
+                offset += start*new_strides[i]
+                new_strides[i] = new_strides[i] * step
+                new_shape[i] = (end-start)//step 
+            elif isinstance(idx, int):
+                assert idx < new_shape[i], "index out of bound"
+                offset += idx*self.strides[i]
+                new_strides[i:] = new_strides[i+1:] 
+                new_shape[i:] = new_shape[i+1:]
+        return Tensor(None, function=IndexGet(self,key),shape=new_shape,strides=new_strides,offset=offset,is_realized=False)
+                
     def is_contiguous(self):
-        return (self._strides is None or (self._strides == get_default_strides(self.shape)))
+        return (self.offset is None and (self._strides is None or (self._strides == get_default_strides(self.shape))))
 
     def contiguous(self) -> Tensor:
         from function import Contiguous

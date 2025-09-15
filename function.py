@@ -133,6 +133,14 @@ class Transpose(Function):
         mem.gradient = grad.transpose(dim1,dim2)
         mem.backward()
 
+class IndexGet(Function):
+    def __init__(self, a:Tensor, key:tuple):
+        super().__init__(a)
+        self.name = "index_get"
+    
+    def backward(self, grad:np.array):
+        raise NotImplementedError
+
 class Contiguous(Function):
     def __init__(self, a:Tensor):
         super().__init__(a)
