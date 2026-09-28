@@ -193,7 +193,7 @@ class Tensor:
         for i, dim in enumerate(self.shape):
             if dim == 1 and expanded_shape[i] != self.shape[i]:
                 strides[i] = 0
-        
+
         return Tensor(None,function=Expand(self,expanded_shape),shape=expanded_shape,strides=strides, is_realized=False)
 
     def transpose(self, dim1, dim2) -> Tensor:

@@ -26,13 +26,13 @@ class TestCPUAri(unittest.TestCase):
     def test_cpu_expand(self):
         a = Tensor([1])
         b = a.expand(2)
-        np.testing.assert_array_equal(b.realize(), np.array([[1],[1]]))
+        np.testing.assert_array_equal(b.numpy(), np.array([1,1]))
 
     def test_cpu_mse(self):
         a = Tensor([2,2])
         b = Tensor([4,4])
         l2 = (a - b).mseLoss()
-        self.assertEqual(l2.realize(), 4)
+        self.assertEqual(l2.numpy(), 4)
 
 
 if __name__ == "__main__":

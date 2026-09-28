@@ -11,6 +11,7 @@ def contiguous_numpy_impl(src: Tensor) -> np.array:
     new_data = np.zeros(shape).flatten()
     assert src.is_realized, "src tensor need to be realized before calling contiguous_numpy_impl"
     old_data = src.data
+    offset = 0 if src.offset is None else src.offset
     for ptr in range(np.prod(shape)):
         # map each element in old data to new data
         indices = np.zeros(len(shape))
@@ -19,6 +20,6 @@ def contiguous_numpy_impl(src: Tensor) -> np.array:
         for i,s in enumerate(get_default_strides(shape)):
             indices[i] = 0 if s == 0 else rem // s
             if s != 0:  rem %= s
-        old_data_ptr = np.dot(indices, src.strides).astype(int) + src.offset
+        old_data_ptr = np.dot(indices, src.strides).astype(int) + offset
         new_data[ptr] = old_data[old_data_ptr]
     return new_data
