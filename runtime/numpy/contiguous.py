@@ -8,6 +8,8 @@ def contiguous_numpy_impl(src: Tensor) -> np.array:
     """
     from util import get_default_strides
     shape = src.shape
+    if len(shape) == 0:
+        return src.data.flatten()[src.offset]
     new_data = np.zeros(shape).flatten()
     assert src.is_realized, "src tensor need to be realized before calling contiguous_numpy_impl"
     old_data = src.data

@@ -52,6 +52,33 @@ class TestIndexPut(unittest.TestCase):
         c = a[-3:-1,:,:]
         self.assertTrue(np.allclose(c.numpy(), raw[-3:-1,:,:]))
         
+    def test_singledim(self):
+        raw = np.random.rand(3,1,3)
+        a = Tensor(raw)
+        b = a[0]
+        self.assertTrue(np.allclose(b.numpy(), raw[0]))
+    
+    def test_consecutive_call(self):
+        raw = np.random.rand(3,2,3)
+        a = Tensor(raw)
+        b = a[1:2,1:2]
+        c = b[0,:,1]
+        self.assertTrue(np.allclose(c.numpy(), raw[1,1,1]))
+
+    def test_scalar(self):
+        raw = np.random.rand(3,2,3)
+        a = Tensor(raw)
+        b = a[1,1,1]
+        self.assertTrue(np.allclose(b.numpy(), raw[1,1,1]))
+
+    @unittest.expectedFailure
+    def test_scalar_fail(self):
+        raw = np.random.rand(3,2,3)
+        a = Tensor(raw)
+        b = a[1,1,1]
+        c = b[0]
+        print(b.shape, c.shape)
+
     @unittest.expectedFailure
     def test_invaliddim_fail1(self):
         raw = np.random.rand(3,1,3)
@@ -63,6 +90,12 @@ class TestIndexPut(unittest.TestCase):
         raw = np.random.rand(3,1,3)
         a = Tensor(raw)
         b = a[4:6,:,:]
+    
+    @unittest.expectedFailure
+    def test_invaliddim_fail3(self):
+        raw = np.random.rand(3,1,3)
+        a = Tensor(raw)
+        b = a[0,:,:,0]
 
 
 if __name__ == "__main__":

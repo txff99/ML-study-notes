@@ -83,10 +83,15 @@ class Tensor:
     def offset(self):
         return self._offset
     
+    @property
+    def is_scalar(self):
+        return len(self.shape) == 0
+    
     def numpy(self) -> np.array:
         contiguous_tensor = self.contiguous()
         if not contiguous_tensor.is_realized:
             contiguous_tensor.realize()
+        if self.is_scalar: return contiguous_tensor.data
         return contiguous_tensor.data.reshape(self.shape)
 
     def lower(self) -> List(Op): 
@@ -206,13 +211,16 @@ class Tensor:
         return Tensor(None, function=Transpose(self,dim1,dim2),shape=new_shape,strides=new_strides, is_realized=False)
 
     def __getitem__(self, key) -> Tensor:
+        assert not self.is_scalar, "tensor is a scalar and should not be indexed."
         from function import IndexGet
         if not isinstance(key, tuple):
             key = (key,) 
-        offset = 0
+        if len(self.shape) > len(key):
+            key += tuple(slice(None,None,None) for _ in range(len(self.shape) - len(key)))
+        assert len(key) == len(self.shape)
+        offset = 0 if self.offset is None else self.offset
         new_strides = list(self.strides)
         new_shape = list(self.shape)
-        assert len(key) == len(self.shape)
         for i,idx in enumerate(reversed(key)):
             i = len(key) - i - 1
             if isinstance(idx, slice):
