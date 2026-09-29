@@ -5,7 +5,7 @@ import unittest
 sys.path.append("../..")
 from tensor import Tensor
 
-class TestIndexPut(unittest.TestCase):
+class TestIndexGet(unittest.TestCase):
     def test_shape(self):
         np.random.seed(1)
         raw = np.random.rand(3,1,3)

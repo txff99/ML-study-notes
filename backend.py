@@ -20,7 +20,7 @@ class CPU(Backend):
         self.name = "cpu"
         self.supported_ops = {OpType.ADD, OpType.SUB, OpType.MATMUL, OpType.EXPAND, 
                             OpType.MSELOSS, OpType.MAX, OpType.TRANSPOSE, OpType.CONTIGUOUS, 
-                            OpType.MAXIMUM, OpType.SUM, OpType.SQRT, OpType.EXP,OpType.INDEXGET}
+                            OpType.MAXIMUM, OpType.SUM, OpType.SQRT, OpType.EXP,OpType.INDEXGET,OpType.INDEXPUT}
     
     def execute(self, op: Op):
         optype: OpType = op.optype
@@ -46,6 +46,10 @@ class CPU(Backend):
         elif optype == OpType.INDEXGET:
             assert len(srcs) == 1, "srcs num does not match"
             dst.data = srcs[0].data
+        elif optype == OpType.INDEXPUT:
+            assert len(srcs) == 1, "srcs num does not match"
+            from runtime.numpy.index_put import index_put_numpy_impl
+            dst.data = index_put_numpy_impl(srcs[0],dst.function.shape_info, dst.function.value)
         elif optype == OpType.CONTIGUOUS:
             assert len(srcs) == 1, "srcs num does not match"
             from runtime.numpy.contiguous import contiguous_numpy_impl

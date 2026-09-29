@@ -141,6 +141,16 @@ class IndexGet(Function):
     def backward(self, grad:np.array):
         raise NotImplementedError
 
+class IndexPut(Function):
+    def __init__(self, a:Tensor, shape_info:tuple, value: Tensor|np.ndarray):
+        super().__init__(a)
+        self.name = "index_put"
+        self.shape_info = shape_info
+        self.value = value
+    
+    def backward(self, grad:np.array):
+        raise NotImplementedError
+
 class Contiguous(Function):
     def __init__(self, a:Tensor):
         super().__init__(a)

@@ -2,7 +2,7 @@ from __future__ import annotations
 import numpy as np
 from typing import List
 from enum import Enum
-from util import get_default_strides
+from util import get_default_strides, canonicalize_index, get_new_shape_from_index
 
 """
 tensor used to provide interface for data operation
@@ -24,6 +24,7 @@ class OpType(Enum):
     TRANSPOSE = 13
     CONTIGUOUS = 14
     INDEXGET = 15
+    INDEXPUT = 16
 
 FUNCTION_TO_OPTYPE = {
     "add": OpType.ADD,
@@ -41,6 +42,7 @@ FUNCTION_TO_OPTYPE = {
     "transpose": OpType.TRANSPOSE,
     "contiguous": OpType.CONTIGUOUS,
     "index_get": OpType.INDEXGET,
+    "index_put": OpType.INDEXPUT,
 }
 
 class Op:
@@ -213,29 +215,42 @@ class Tensor:
     def __getitem__(self, key) -> Tensor:
         assert not self.is_scalar, "tensor is a scalar and should not be indexed."
         from function import IndexGet
-        if not isinstance(key, tuple):
-            key = (key,) 
-        if len(self.shape) > len(key):
-            key += tuple(slice(None,None,None) for _ in range(len(self.shape) - len(key)))
-        assert len(key) == len(self.shape)
-        offset = 0 if self.offset is None else self.offset
-        new_strides = list(self.strides)
-        new_shape = list(self.shape)
-        for i,idx in enumerate(reversed(key)):
-            i = len(key) - i - 1
-            if isinstance(idx, slice):
-                start, end, step = idx.indices(self.shape[i])
-                assert start < end, "invalid index"
-                offset += start*new_strides[i]
-                new_strides[i] = new_strides[i] * step
-                new_shape[i] = (end-start)//step 
-            elif isinstance(idx, int):
-                assert idx < new_shape[i], "index out of bound"
-                offset += idx*self.strides[i]
-                new_strides[i:] = new_strides[i+1:] 
-                new_shape[i:] = new_shape[i+1:]
+        key = canonicalize_index(key, self.shape)
+        new_shape, new_strides, offset = get_new_shape_from_index(
+            key,
+            self.shape,
+            self.strides,
+            self.offset,
+        )
         return Tensor(None, function=IndexGet(self,key),shape=new_shape,strides=new_strides,offset=offset,is_realized=False)
                 
+    def __setitem__(self, key, value) -> Tensor:
+        old_self = Tensor(
+            data=self.data,
+            function=self.function,
+            shape=self.shape,
+            strides=self.strides,
+            offset=self.offset,
+            is_realized=self.is_realized
+        )
+        new = old_self.index_put(key, value)
+        self.__dict__ = new.__dict__
+
+    def index_put(self, key, value) -> Tensor:
+        assert not self.is_scalar, "tensor is a scalar and should not be indexed."
+        assert isinstance(value, Tensor), "index put should have value as tensor."
+        from function import IndexPut
+        key = canonicalize_index(key, self.shape)
+        new_shape, new_strides, offset = get_new_shape_from_index(
+            key,
+            self.shape,
+            self.strides,
+            self.offset,
+        )
+        assert tuple(new_shape) == value.shape, f"value shape does not match key shape. {new_shape}, {value.shape}"
+        shape_info = (new_shape,new_strides,offset)
+        return Tensor(None,function=IndexPut(self,shape_info,value),shape=self.shape,strides=self.strides,offset=self.offset,is_realized=False)
+
     def is_contiguous(self):
         return (self.offset is None and (self._strides is None or (self._strides == get_default_strides(self.shape))))
 
