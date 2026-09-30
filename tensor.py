@@ -25,6 +25,7 @@ class OpType(Enum):
     CONTIGUOUS = 14
     INDEXGET = 15
     INDEXPUT = 16
+    RESHAPE = 17
 
 FUNCTION_TO_OPTYPE = {
     "add": OpType.ADD,
@@ -43,6 +44,7 @@ FUNCTION_TO_OPTYPE = {
     "contiguous": OpType.CONTIGUOUS,
     "index_get": OpType.INDEXGET,
     "index_put": OpType.INDEXPUT,
+    "reshape": OpType.RESHAPE,
 }
 
 class Op:
@@ -185,7 +187,7 @@ class Tensor:
         assert self.shape[-1] == other.shape[0], f"Incompatible shapes for matrix multiplication: {self.shape} and {other.shape}"
         return Tensor(None,function=MatMul(self,other), shape=(self.shape[0], other.shape[1]), is_realized=False)
     
-    def expand(self, *expanded_shape: tuple[uint8]) -> Tensor:
+    def expand(self, *expanded_shape: tuple[int]) -> Tensor:
         """
         expand only return a view
         """
@@ -212,6 +214,12 @@ class Tensor:
         new_strides[dim1], new_strides[dim2] = new_strides[dim2], new_strides[dim1]
         return Tensor(None, function=Transpose(self,dim1,dim2),shape=new_shape,strides=new_strides, is_realized=False)
 
+    def reshape(self, *new_shape: tuple[int]) -> Tensor:
+        from function import Reshape
+        assert np.prod(new_shape) == np.prod(self.shape), "element num does not match"
+        new_strides = get_default_strides(new_shape)
+        return Tensor(None, function=Reshape(self, new_shape), shape=new_shape,strides=new_strides, offset=self.offset, is_realized=False)
+    
     def __getitem__(self, key) -> Tensor:
         assert not self.is_scalar, "tensor is a scalar and should not be indexed."
         from function import IndexGet

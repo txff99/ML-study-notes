@@ -133,6 +133,15 @@ class Transpose(Function):
         mem.gradient = grad.transpose(dim1,dim2)
         mem.backward()
 
+class Reshape(Function):
+    def __init__(self, a:Tensor, new_shape):
+        super().__init__(a)
+        self.name = "reshape"
+        self.new_shape = new_shape
+    
+    def backward(self, grad:np.array):
+        raise NotImplementedError
+
 class IndexGet(Function):
     def __init__(self, a:Tensor, key:tuple):
         super().__init__(a)

@@ -20,7 +20,8 @@ class CPU(Backend):
         self.name = "cpu"
         self.supported_ops = {OpType.ADD, OpType.SUB, OpType.MATMUL, OpType.EXPAND, 
                             OpType.MSELOSS, OpType.MAX, OpType.TRANSPOSE, OpType.CONTIGUOUS, 
-                            OpType.MAXIMUM, OpType.SUM, OpType.SQRT, OpType.EXP,OpType.INDEXGET,OpType.INDEXPUT}
+                            OpType.MAXIMUM, OpType.SUM, OpType.SQRT, OpType.EXP,OpType.INDEXGET,
+                            OpType.INDEXPUT, OpType.RESHAPE}
     
     def execute(self, op: Op):
         optype: OpType = op.optype
@@ -41,6 +42,9 @@ class CPU(Backend):
             assert len(srcs) == 1, "srcs num does not match"
             dst.data = srcs[0].data
         elif optype == OpType.TRANSPOSE:
+            assert len(srcs) == 1, "srcs num does not match"
+            dst.data = srcs[0].data
+        elif optype == OpType.RESHAPE:
             assert len(srcs) == 1, "srcs num does not match"
             dst.data = srcs[0].data
         elif optype == OpType.INDEXGET:
