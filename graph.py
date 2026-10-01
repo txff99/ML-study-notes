@@ -11,6 +11,11 @@ class Graph:
     def __init__(self, tensor:Tensor):
          self.root = tensor
     
+    def printAST(self):
+        if self.root is not None:
+            print(hex(id(self.root))[-4:], self.root.shape)
+            self.root.function.printAST()
+
     def toposort(self) -> list[Tensor]:
         visited = set()
         linear_tensors = []

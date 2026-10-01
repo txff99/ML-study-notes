@@ -21,7 +21,7 @@ class Function:
     
     def printAST(self,level:str="   "):
         for mem in self.parents:
-            if mem.function is None: print(level[:-3]+"-", "leaf", mem.shape)
+            if mem.function is None: print(level[:-3]+"-", hex(id(mem))[-4:], mem.shape)
             else:
                 print(level[:-3]+"-", mem.function,mem.shape)
                 mem.function.printAST(level=level+LEVEL_BLANK)
