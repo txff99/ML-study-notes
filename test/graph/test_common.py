@@ -41,6 +41,18 @@ class TestGraph(unittest.TestCase):
         g.rewrite(realize_tensor_pass)
         self.assertTrue(c.is_realized==True)
         self.assertTrue(d.is_realized==True)
+    
+    def test_graph_is_realizable(self):
+        a = Tensor(None, shape=(3,2,3),strides=(6,0,3),is_realized=False)
+        b = Tensor(None, shape=(3,2,3),strides=(6,0,3),is_realized=True)
+        c = Tensor(None, shape=(3,2,3),strides=(6,0,3),is_realized=True)
+        d = a + b
+        e = b + c
+        f = Graph(d)
+        t = Graph(e)
+        self.assertFalse(f.is_realizable())
+        self.assertTrue(t.is_realizable())
+
 
 if __name__ == "__main__":
     unittest.main()

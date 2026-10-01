@@ -50,6 +50,20 @@ class Graph:
                 passes[i](tensor, args[i])
             else:
                 passes[i](tensor)
+    
+    def is_realizable(self):
+        edges = []
+        visited = set()
+        def dfs(tensor: Tensor):
+            if tensor in visited: return
+            visited.add(tensor) 
+            if tensor.function is None: 
+                edges.append(tensor)
+                return
+            for mem in tensor.function.parents:
+                dfs(mem)
+        dfs(self.root)
+        return all([e.is_realized for e in edges])
 
 def alloc_tensor_pass(tensor: Tensor, args: tuple[Backend]):
     backend = args
@@ -68,3 +82,8 @@ def add_contiguous_before_ari(tensor: Tensor, args=None):
         for i,_ in enumerate(tensor.function.parents):
             tensor.function.parents[i] = tensor.function.parents[i].contiguous()
         
+def constant_folding(tensor: Tensor, args=None):
+    """
+    a = 
+    
+    """
