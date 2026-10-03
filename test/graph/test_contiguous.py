@@ -4,7 +4,7 @@ import unittest
 
 sys.path.append("../..")
 from tensor import Tensor
-from graph import Graph
+from graph import Graph, add_contiguous_before_ari
 class TestGraph(unittest.TestCase):
     def test_graph_add_contiguous(self):
         print("Start test_graph_add_contiguous")

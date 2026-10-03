@@ -34,10 +34,10 @@ class Graph:
         def dfs(tensor: Tensor):
             if tensor in visited: return
             visited.add(tensor) 
-            self.apply_passes(tensor, passes, args)
             if tensor.function is None: return
             for mem in tensor.function.parents:
                 dfs(mem)
+            self.apply_passes(tensor, passes, args)
         dfs(self.root)        
 
     def apply_passes(self, tensor: Tensor, passes: list[Callable]|Callable, args:list[tuple]|tuple=None):
@@ -65,25 +65,14 @@ class Graph:
         dfs(self.root)
         return all([e.is_realized for e in edges])
 
-def alloc_tensor_pass(tensor: Tensor, args: tuple[Backend]):
-    backend = args
-    assert args is not None, "alloc_tensor_pass needs to specify backend"
-    assert isinstance(backend,Backend), "alloc_tensor_rule args not match"
-    tensor.backend = backend
-    visited.add(tensor)
-    backend.alloc(tensor)
-    if tensor.is_realized == True:
-        backend.copyHTOD(tensor)
-
 def add_contiguous_before_ari(tensor: Tensor, args=None):
     arithmetic_funcs = {"add","sub","matmul","maximum","mse","max","mul","div","exp","sum","sqrt"}
     if tensor.function is not None and tensor.function.name in arithmetic_funcs:
         # replace tensor parent with parent.contiguous
         for i,_ in enumerate(tensor.function.parents):
             tensor.function.parents[i] = tensor.function.parents[i].contiguous()
-        
+
 def constant_folding(tensor: Tensor, args=None):
-    """
-    a = 
-    
-    """
+    if tensor.function is None: return
+    if all([par.is_realized for par in tensor.function.parents]):
+        tensor.realize()
