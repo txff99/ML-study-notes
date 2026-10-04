@@ -18,7 +18,7 @@ def is_function_add_sub(tensor:Tensor):
     return tensor.function is not None and tensor.function.name in {"add","sub"}
 
 def is_function_mul_div(tensor:Tensor):
-    return tensor.function is not None and tensor.function.name in {"add","sub"}
+    return tensor.function is not None and tensor.function.name in {"mul","div"}
 
 def is_function_arith_binop(tensor:Tensor):
     return is_function_add_sub(tensor) or is_function_mul_div(tensor)
@@ -38,7 +38,7 @@ class Graph:
     
     def printAST(self):
         if self.root is not None:
-            print(hex(id(self.root))[-4:], self.root.shape)
+            print(self.root.function.name, hex(id(self.root))[-4:], self.root.shape)
             self.root.function.printAST()
 
     def toposort(self) -> list[Tensor]:
@@ -99,6 +99,7 @@ def add_contiguous_before_ari(tensor: Tensor, args=None):
 
 def constant_folding(tensor: Tensor, args=None):
     # pattern match 1: if all parents realized, realize this tensor
+    # todo: make sure no subgraph has tensor requires grad
     if all_parents_evaluated(tensor):
         tensor.realize()
         # remove all parents.
@@ -111,11 +112,13 @@ def constant_folding(tensor: Tensor, args=None):
         r = tensor
         rr = r1 if r1.is_realized else r2
         r_ = r2 if r1.is_realized else r1
+        if rr.require_grad: return 
         no_op = Tensor(0) 
         if is_function_add_sub(r_) and is_only_one_src_realized(r_):
             r_1, r_2 = r_.function.parents
             rrr = r_1 if r_1.is_realized else r2
             r__ = r_2 if r_1.is_realized else r1
+            if rrr.require_grad: return
             func2 = r_.function
             func2.parents = [rrr, no_op] if r_1.is_realized else [no_op, rrr]
             folding_tensor2 = Tensor(None, shape=rrr.shape, function=func2,is_realized=False)
@@ -123,11 +126,56 @@ def constant_folding(tensor: Tensor, args=None):
             func1.parents = [rr, folding_tensor2] if r1.is_realized else [folding_tensor2, rr]
             folding_tensor1 = Tensor(None, shape=rr.shape, function=func1, is_realized=False)
             folding_tensor1.realize()
-            # special case: (folding1 + (folding2 - r__)) where r__ is negative
+            folding_tensor1.function = None # avoid cyclic reference for function
             r.function.parents = [folding_tensor1, r__] if r1.is_realized else [r__, folding_tensor1]
             if r_.function.name == "sub" and r.function.name=="add" and r_1.is_realized:
+                # (folding1 + (folding2 - r__)) -> (folding1 + folding2 - r__)
                 r.function.name = "sub"
-            # ((folding1 - r__) + folding2)
                 if r2.is_realized:
+                # ((folding1 - r__) + folding2)
+                    r.function.parents = [folding_tensor1, r__]
+            elif r_.function.name == "sub" and r.function.name=="sub" and r_1.is_realized:
+                # (folding1 - (folding2 - r__)) -> (folding1 - folding2 + r__)
+                if r1.is_realized:
+                    r.function.name = "add"
+                # ((folding1 - r__ ) - folding2) -> (folding1 - folding2 - r__)
+                else:
+                    r.function.parents = [folding_tensor1, r__]
+            return
+        
+    # pattern match3: fold arithmetic op mul/div
+    if is_function_mul_div(tensor) and is_only_one_src_realized(tensor):
+        r1, r2 = tensor.function.parents
+        r = tensor
+        rr = r1 if r1.is_realized else r2
+        r_ = r2 if r1.is_realized else r1
+        if rr.require_grad: return 
+        no_op = Tensor(1) 
+        if is_function_mul_div(r_) and is_only_one_src_realized(r_):
+            r_1, r_2 = r_.function.parents
+            rrr = r_1 if r_1.is_realized else r2
+            r__ = r_2 if r_1.is_realized else r1
+            if rrr.require_grad: return
+            func2 = r_.function
+            func2.parents = [rrr, no_op] if r_1.is_realized else [no_op, rrr]
+            folding_tensor2 = Tensor(None, shape=rrr.shape, function=func2,is_realized=False)
+            func1 = r.function
+            func1.parents = [rr, folding_tensor2] if r1.is_realized else [folding_tensor2, rr]
+            folding_tensor1 = Tensor(None, shape=rr.shape, function=func1, is_realized=False)
+            folding_tensor1.realize()
+            folding_tensor1.function = None # avoid cyclic reference for function
+            r.function.parents = [folding_tensor1, r__] if r1.is_realized else [r__, folding_tensor1]
+            if r_.function.name == "div" and r.function.name=="mul" and r_1.is_realized:
+                # (folding1 * (folding2 / r__)) -> (folding1 * folding2 / r__)
+                r.function.name = "div"
+                # ((folding1 / r__) * folding2) -> (folding1 * folding2 / r__)
+                if r2.is_realized:
+                    r.function.parents = [folding_tensor1, r__]
+            elif r_.function.name == "div" and r.function.name=="div" and r_1.is_realized:
+                # (folding1 / (folding2 / r__)) -> (folding1/folding2 * r__)
+                if r1.is_realized:
+                    r.function.name =  "mul"
+                # ((folding1 / r__) / folding2) -> (folding1/folding2 / r__)
+                else:
                     r.function.parents = [folding_tensor1, r__]
             return

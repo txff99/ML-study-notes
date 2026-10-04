@@ -18,7 +18,7 @@ class CPU(Backend):
     def __init__(self):
         super().__init__()
         self.name = "cpu"
-        self.supported_ops = {OpType.ADD, OpType.SUB, OpType.MATMUL, OpType.EXPAND, 
+        self.supported_ops = {OpType.ADD, OpType.SUB, OpType.MUL, OpType.DIV, OpType.MATMUL, OpType.EXPAND, 
                             OpType.MSELOSS, OpType.MAX, OpType.TRANSPOSE, OpType.CONTIGUOUS, 
                             OpType.MAXIMUM, OpType.SUM, OpType.SQRT, OpType.EXP,OpType.INDEXGET,
                             OpType.INDEXPUT, OpType.RESHAPE}
@@ -35,6 +35,12 @@ class CPU(Backend):
         elif optype == OpType.SUB:
             assert len(srcs) == 2, "srcs num does not match"
             dst.data = srcs[0].data - srcs[1].data
+        elif optype == OpType.MUL:
+            assert len(srcs) == 2, "srcs num does not match"
+            dst.data = srcs[0].data * srcs[1].data
+        elif optype == OpType.DIV:
+            assert len(srcs) == 2, "srcs num does not match"
+            dst.data = srcs[0].data / srcs[1].data
         elif optype == OpType.MATMUL:
             assert len(srcs) == 2, "srcs num does not match"
             dst.data = (srcs[0].data.reshape(srcs[0].shape) @ srcs[1].data.reshape(srcs[1].shape)).flatten()

@@ -19,13 +19,15 @@ class Function:
     def __repr__(self):
         return self.name
     
-    def printAST(self,level:str="   "):
+    def printAST(self,level:str=None):
+        if level is None:
+            print(self)
+            level = "   "
         for mem in self.parents:
             if mem.function is None: print(level[:-3]+"-", hex(id(mem))[-4:], mem.shape)
             else:
-                print(level[:-3]+"-", mem.function,mem.shape)
+                print(level[:-3]+"-", hex(id(mem))[-4:], mem.function,mem.shape)
                 mem.function.printAST(level=level+LEVEL_BLANK)
-
 
 class Add(Function):
     def __init__(self,a:Tensor,b:Tensor):

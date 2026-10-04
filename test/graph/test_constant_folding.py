@@ -44,22 +44,14 @@ class TestGraph(unittest.TestCase):
         g = Graph(e)
         g.rewrite(constant_folding)
         self.assertEqual(e.function.parents[1].data, 3)
-    
-    def test_add_sub2(self):
-        a = Tensor(1)
-        b = Tensor(2) 
-        c = Tensor(None, shape=(), is_realized=False)
+
         d = a - c
         e = b + d
         g = Graph(e)
         g.rewrite(constant_folding)
         self.assertEqual(e.function.parents[0].data, 3)
         self.assertEqual(e.function.name, "sub")
-   
-    def test_add_sub3(self):
-        a = Tensor(1)
-        b = Tensor(2) 
-        c = Tensor(None, shape=(), is_realized=False)
+
         d = a - c
         e = d + b
         g = Graph(e)
@@ -67,5 +59,58 @@ class TestGraph(unittest.TestCase):
         self.assertEqual(e.function.parents[0].data, 3)
         self.assertEqual(e.function.name, "sub")
 
+        d = a - c
+        e = b - d
+        g = Graph(e)
+        g.rewrite(constant_folding)
+        self.assertEqual(e.function.parents[0].data, 1)
+        self.assertEqual(e.function.name, "add")
+
+        d = a - c
+        e = d - b
+        g = Graph(e)
+        g.rewrite(constant_folding)
+        self.assertEqual(e.function.parents[0].data, -1)
+        self.assertEqual(e.function.name, "sub")
+
+    def test_mul_div(self):
+        a = Tensor(1)
+        b = Tensor(2) 
+        c = Tensor(None, shape=(), is_realized=False)
+        d = a * c
+        e = d * b
+        g = Graph(e)
+        g.rewrite(constant_folding)
+        self.assertEqual(e.function.parents[1].data, 2)
+
+        d = a / c
+        e = b * d
+        g = Graph(e)
+        g.rewrite(constant_folding)
+        self.assertEqual(e.function.parents[0].data, 2)
+        self.assertEqual(e.function.name, "div")
+
+        d = a / c
+        e = d * b
+        g = Graph(e)
+        g.rewrite(constant_folding)
+        self.assertEqual(e.function.parents[0].data, 2)
+        self.assertEqual(e.function.name, "div")
+
+        d = a / c
+        e = b / d
+        g = Graph(e)
+        g.rewrite(constant_folding)
+        self.assertEqual(e.function.parents[0].data, 2)
+        self.assertEqual(e.function.name, "mul")
+
+        d = a / c
+        e = d / b
+        g = Graph(e)
+        g.rewrite(constant_folding)
+        self.assertEqual(e.function.parents[0].data, 0.5)
+        self.assertEqual(e.function.name, "div")
+    
+    
 if __name__ == "__main__":
     unittest.main()

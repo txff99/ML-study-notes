@@ -178,7 +178,7 @@ class Tensor:
         assert isinstance(other, Tensor), "The operand must be an instance of Tensor"
         return Tensor(None,function=Mul(self,other), shape=other.shape,is_realized=False)
 
-    def __div__(self, other:Tensor) -> Tensor:
+    def __truediv__(self, other:Tensor) -> Tensor:
         from function import Div
         assert self.shape==other.shape , "tensor shape is not the same"
         assert isinstance(other, Tensor), "The operand must be an instance of Tensor"
