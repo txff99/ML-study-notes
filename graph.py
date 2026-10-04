@@ -74,7 +74,12 @@ class Graph:
         dfs(self.root)
         return linear_tensors
 
-    def rewrite(self, passes: list[Callable]|Callable, args:list[tuple]=None):
+    def rewrite(self, passes: list[Callable]|Callable):
+        if callable(passes): passes = [passes]
+        for p in passes:
+            self.apply_pass(self.root, p)        
+
+    def apply_pass(self, tensor: Tensor, p: Callable):
         visited = set()
         def dfs(tensor: Tensor):
             if tensor in visited: return
@@ -82,19 +87,8 @@ class Graph:
             if tensor.function is None: return
             for mem in tensor.function.parents:
                 dfs(mem)
-            self.apply_passes(tensor, passes, args)
-        dfs(self.root)        
-
-    def apply_passes(self, tensor: Tensor, passes: list[Callable]|Callable, args:list[tuple]|tuple=None):
-        if callable(passes): passes = [passes]
-        if args is not None and isinstance(args, tuple): 
-            args = list[args]
-            assert len(passes)==len(args), "number of args should match passes"
-        for i,_ in enumerate(passes):
-            if args is not None:
-                passes[i](tensor, args[i])
-            else:
-                passes[i](tensor)
+            p(tensor)
+        dfs(tensor)
     
     def is_realizable(self):
         edges = []
@@ -109,6 +103,21 @@ class Graph:
                 dfs(mem)
         dfs(self.root)
         return all([e.is_realized for e in edges])
+
+def canonicalize(tensor:Tensor):
+    c1 = Tensor(1, is_fake=True)
+    x = Tensor(None, shape=(), is_realized=False, is_fake=True)
+    RULES = [
+        (c1 + x, lambda c1, x: x + c1),
+        (c1 * x, lambda c1, x: x * c1),
+    ]
+
+    for pattern, replacement in RULES:
+        bindings = match(tensor, pattern)
+        if bindings is not None:
+            new_tensor = replacement(*bindings)
+            tensor.replace(new_tensor)
+            return
 
 def add_contiguous_before_ari(tensor: Tensor, args=None):
     arithmetic_funcs = {"add","sub","matmul","maximum","mse","max","mul","div","exp","sum","sqrt"}
@@ -132,40 +141,26 @@ def constant_folding(tensor: Tensor, args=None):
     
     FOLD_RULES = [
         # add/sub
-        (c1 + (x + c2), lambda c1, x, c2 : x + (c1 + c2)),
-        ((c1 + x) + c2, lambda c1, x, c2: x + (c1 + c2)),
         ((x + c1) + c2, lambda x, c1, c2: x + (c1 + c2)),
-        (c1 + (c2 + x), lambda c1, c2, x: x + (c1 + c2)),
         (c1 - (x + c2), lambda c1, x, c2 : (c1 + c2) - x),
-        ((c1 + x) - c2, lambda c1, x, c2: x + (c1 - c2)),
         ((x + c1) - c2, lambda x, c1, c2: x + (c1 - c2)),
-        (c1 - (c2 + x), lambda c1, c2, x: x + (c1 - c2)),
         (c1 - (x - c2), lambda c1, x, c2 : (c1 - c2) - x),
         ((c1 - x) - c2, lambda c1, x, c2: (c1 - c2) - x),
         ((x - c1) - c2, lambda x, c1, c2: x - (c1 + c2)),
         (c1 - (c2 - x), lambda c1, c2, x: (c1 - c2) + x),
-        (c1 + (x - c2), lambda c1, x, c2 : x + (c1 - c2)),
         ((c1 - x) + c2, lambda c1, x, c2:  (c1 + c2) - x),
         ((x - c1) + c2, lambda x, c1, c2: x + (c2 - c1)),
-        (c1 + (c2 - x), lambda c1, c2, x: (c1 + c2) - x),
 
         # mul/div
-        (c1 * (x * c2), lambda c1, x, c2 : x * (c1 * c2)),
-        ((c1 * x) * c2, lambda c1, x, c2: x * (c1 * c2)),
         ((x * c1) * c2, lambda x, c1, c2: x + (c1 * c2)),
-        (c1 * (c2 * x), lambda c1, c2, x: x + (c1 * c2)),
         (c1 / (x * c2), lambda c1, x, c2 : (c1 * c2) / x),
-        ((c1 * x) / c2, lambda c1, x, c2: x * (c1 / c2)),
         ((x * c1) / c2, lambda x, c1, c2: x * (c1 / c2)),
-        (c1 / (c2 * x), lambda c1, c2, x: x * (c1 / c2)),
         (c1 / (x / c2), lambda c1, x, c2 : (c1 / c2) / x),
         ((c1 / x) / c2, lambda c1, x, c2: (c1 / c2) / x),
         ((x / c1) / c2, lambda x, c1, c2: x / (c1 * c2)),
         (c1 / (c2 / x), lambda c1, c2, x: (c1 / c2) * x),
-        (c1 * (x / c2), lambda c1, x, c2 : x * (c1 / c2)),
         ((c1 / x) * c2, lambda c1, x, c2:  (c1 * c2) / x),
         ((x / c1) * c2, lambda x, c1, c2: x * (c2 / c1)),
-        (c1 * (c2 / x), lambda c1, c2, x: (c1 * c2) / x),
     ]
 
     for pattern, replacement in FOLD_RULES:
@@ -174,3 +169,10 @@ def constant_folding(tensor: Tensor, args=None):
             new_tensor = replacement(*bindings)
             tensor.replace(new_tensor)
             return
+
+def constant_folding_pass(tensor:Tensor):
+    return [
+        (canonicalize, tensor),
+        (constant_folding_pass, tensor),
+        (constant_realize, tensor),
+    ]

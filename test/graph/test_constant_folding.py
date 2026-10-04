@@ -4,7 +4,8 @@ import unittest
 
 sys.path.append("../..")
 from tensor import Tensor
-from graph import Graph, constant_folding, constant_realize
+from graph import Graph, constant_folding, constant_realize, canonicalize
+constant_folding_pipeline = [canonicalize, constant_folding, constant_realize]
 class TestGraph(unittest.TestCase):
     def test_realize_constant(self):
         a = Tensor(1)
@@ -42,39 +43,34 @@ class TestGraph(unittest.TestCase):
         d = a + c
         e = d + b
         g = Graph(e)
-        g.rewrite(constant_folding)
-        g.rewrite(constant_realize)
+        g.rewrite(constant_folding_pipeline)
         self.assertEqual(e.function.parents[1].data, 3)
 
         d = a - c
         e = b + d
         g = Graph(e)
-        g.rewrite(constant_folding)
-        g.rewrite(constant_realize)
+        g.rewrite(constant_folding_pipeline)
         self.assertEqual(e.function.parents[0].data, 3)
         self.assertEqual(e.function.name, "sub")
 
         d = a - c
         e = d + b
         g = Graph(e)
-        g.rewrite(constant_folding)
-        g.rewrite(constant_realize)
+        g.rewrite(constant_folding_pipeline)
         self.assertEqual(e.function.parents[0].data, 3)
         self.assertEqual(e.function.name, "sub")
 
         d = a - c
         e = b - d
         g = Graph(e)
-        g.rewrite(constant_folding)
-        g.rewrite(constant_realize)
+        g.rewrite(constant_folding_pipeline)
         self.assertEqual(e.function.parents[0].data, 1)
         self.assertEqual(e.function.name, "add")
 
         d = a - c
         e = d - b
         g = Graph(e)
-        g.rewrite(constant_folding)
-        g.rewrite(constant_realize)
+        g.rewrite(constant_folding_pipeline)
         self.assertEqual(e.function.parents[0].data, -1)
         self.assertEqual(e.function.name, "sub")
 
@@ -85,39 +81,34 @@ class TestGraph(unittest.TestCase):
         d = a * c
         e = d * b
         g = Graph(e)
-        g.rewrite(constant_folding)
-        g.rewrite(constant_realize)
+        g.rewrite(constant_folding_pipeline)
         self.assertEqual(e.function.parents[1].data, 2)
 
         d = a / c
         e = b * d
         g = Graph(e)
-        g.rewrite(constant_folding)
-        g.rewrite(constant_realize)
+        g.rewrite(constant_folding_pipeline)
         self.assertEqual(e.function.parents[0].data, 2)
         self.assertEqual(e.function.name, "div")
 
         d = a / c
         e = d * b
         g = Graph(e)
-        g.rewrite(constant_folding)
-        g.rewrite(constant_realize)
+        g.rewrite(constant_folding_pipeline)
         self.assertEqual(e.function.parents[0].data, 2)
         self.assertEqual(e.function.name, "div")
 
         d = a / c
         e = b / d
         g = Graph(e)
-        g.rewrite(constant_folding)
-        g.rewrite(constant_realize)
+        g.rewrite(constant_folding_pipeline)
         self.assertEqual(e.function.parents[0].data, 2)
         self.assertEqual(e.function.name, "mul")
 
         d = a / c
         e = d / b
         g = Graph(e)
-        g.rewrite(constant_folding)
-        g.rewrite(constant_realize)
+        g.rewrite(constant_folding_pipeline)
         self.assertEqual(e.function.parents[0].data, 0.5)
         self.assertEqual(e.function.name, "div")
     

@@ -310,6 +310,10 @@ class Tensor:
     
     def replace(self, other: Tensor):
         self.__dict__.update(other.__dict__)
+
+    def makeFakeEdge(self, other: Tensor) -> Tensor:
+        from function import FakeFunction
+        return Tensor(None, shape=self.shape, function=FakeFunction(self, other), is_realized=False)
     
     def backward(self, level:str = None):
         if self.function is None: return
