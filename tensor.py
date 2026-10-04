@@ -58,7 +58,7 @@ class Op:
 
 class Tensor:
     def __init__(self, data:np.array|tuple|list|int|float=None, function=None, shape: tuple|list=None, 
-                    dtype=np.float32, strides:tuple|list = None, offset:int=None, 
+                    dtype=np.float32, strides:tuple|list = None, offset:int=None, require_grad=False, 
                     is_realized=True):
         assert data is not None or shape is not None, "at least one of the data or shape should be given"
         if data is not None and shape is not None:
@@ -74,6 +74,7 @@ class Tensor:
         self.backend = CPU()
         self.backend_ptr = None
         self.is_realized = is_realized
+        self.require_grad=require_grad
     
     @property
     def shape(self):
@@ -148,11 +149,14 @@ class Tensor:
         dfs(self)        
         self.backend = CPU()
 
-    def realize(self, cleanup_after_eval=True):
+    def realize(self, backend=None, cleanup_after_eval=True, plan: List[Op]=None):
         from engine import Engine
-        engine = Engine(self.backend, self.lower())
+        if plan is None:
+            plan = self.lower()
+        backend=self.backend if backend is None else backend
+        engine = Engine(backend, plan)
         engine.run()
-        if self.backend.name == "gpu":
+        if backend.name == "gpu":
             # gpu need cleanup
             self.toCPU(cleanup=cleanup_after_eval)
 
