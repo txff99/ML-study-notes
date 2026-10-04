@@ -59,7 +59,7 @@ class Op:
 class Tensor:
     def __init__(self, data:np.array|tuple|list|int|float=None, function=None, shape: tuple|list=None, 
                     dtype=np.float32, strides:tuple|list = None, offset:int=None, require_grad=False, 
-                    is_realized=True):
+                    is_realized=True, is_fake=False):
         assert data is not None or shape is not None, "at least one of the data or shape should be given"
         if data is not None and shape is not None:
             np.prod(data.shape)==np.prod(shape), "data should match shape"
@@ -75,6 +75,7 @@ class Tensor:
         self.backend_ptr = None
         self.is_realized = is_realized
         self.require_grad=require_grad
+        self.is_fake=is_fake
     
     @property
     def shape(self):
@@ -306,6 +307,9 @@ class Tensor:
     
     def __repr__(self):
         return f"Tensor(data={self.data}, shape={self.shape}, grad={self.gradient}, function={self.function}, strides={self.strides}, is_realized={self.is_realized})"
+    
+    def replace(self, other: Tensor):
+        self.__dict__.update(other.__dict__)
     
     def backward(self, level:str = None):
         if self.function is None: return

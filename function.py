@@ -21,12 +21,11 @@ class Function:
     
     def printAST(self,level:str=None):
         if level is None:
-            print(self)
             level = "   "
         for mem in self.parents:
-            if mem.function is None: print(level[:-3]+"-", hex(id(mem))[-4:], mem.shape)
+            if mem.function is None: print(level[:-3]+"-", hex(id(mem))[-4:], mem.shape,mem.data)
             else:
-                print(level[:-3]+"-", hex(id(mem))[-4:], mem.function,mem.shape)
+                print(level[:-3]+"-", hex(id(mem))[-4:], mem.function,mem.shape,mem.data)
                 mem.function.printAST(level=level+LEVEL_BLANK)
 
 class Add(Function):
