@@ -112,6 +112,39 @@ class TestGraph(unittest.TestCase):
         self.assertEqual(e.function.parents[0].data, 0.5)
         self.assertEqual(e.function.name, "div")
     
+    def test_matmul1(self):
+        np.random.seed(1)
+        raw1 = np.random.rand(4,5)
+        raw2 = np.random.rand(4,1)
+        w = Tensor(raw1)
+        v = Tensor(None, shape=(5,1), is_realized=False)
+        c = Tensor(raw2)
+        d = (w @ v) / c
+        g = Graph(d)
+        g.rewrite(constant_folding_pipeline)
+        self.assertEqual(d.function.name, "matmul")
+        self.assertTrue(d.function.parents[0].is_realized)
+        self.assertTrue(np.allclose(d.function.parents[0].numpy(), raw1 / raw2))
+        self.assertFalse(d.function.parents[1].is_realized)
+
+    def test_matmul2(self):  
+        np.random.seed(1)
+        raw1 = np.random.rand(4,5)
+        raw2 = np.random.rand(4,1)
+        raw3 = np.random.rand(4,1)
+        w = Tensor(raw1)
+        v = Tensor(None, shape=(5,1), is_realized=False)
+        b = Tensor(raw2) 
+        c = Tensor(raw3)
+        d = (w @ v + b) / c
+        g = Graph(d)
+        g.rewrite(constant_folding_pipeline)
+        self.assertEqual(d.function.name, "add")
+        self.assertTrue(d.function.parents[0].function.parents[0].is_realized)
+        self.assertTrue(np.allclose(d.function.parents[0].function.parents[0].numpy(), raw1 / raw3))
+        self.assertTrue(d.function.parents[1].is_realized)
+        self.assertTrue(np.allclose(d.function.parents[1].numpy(), raw2/raw3))
+    
     
 if __name__ == "__main__":
     unittest.main()

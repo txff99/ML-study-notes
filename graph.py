@@ -138,6 +138,11 @@ def constant_folding(tensor: Tensor, args=None):
     c1 = Tensor(1, is_fake=True)
     c2 = Tensor(1, is_fake=True) 
     x = Tensor(None, shape=(), is_realized=False, is_fake=True)
+
+    w = Tensor(None, shape=(3,4), is_realized=True, is_fake=True)
+    v = Tensor(None, shape=(4,1), is_realized=False, is_fake=True)
+    b = Tensor(None, shape=(3,1), is_realized=True, is_fake=True)
+    s = Tensor(None, shape=(3,1), is_realized=True, is_fake=True)
     
     FOLD_RULES = [
         # add/sub
@@ -161,6 +166,10 @@ def constant_folding(tensor: Tensor, args=None):
         (c1 / (c2 / x), lambda c1, c2, x: (c1 / c2) * x),
         ((c1 / x) * c2, lambda c1, x, c2:  (c1 * c2) / x),
         ((x / c1) * c2, lambda x, c1, c2: x * (c2 / c1)),
+
+        # matmul
+        ((w @ v + b) / s, lambda w, v, b, s : ((w/s) @ v + b / s)),
+        ((w @ v) / s, lambda w, v, s : (w/s) @ v),
     ]
 
     for pattern, replacement in FOLD_RULES:

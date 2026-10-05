@@ -7,7 +7,6 @@ from tensor import Tensor
 from graph import Graph, add_contiguous_before_ari
 class TestGraph(unittest.TestCase):
     def test_graph_add_contiguous(self):
-        print("Start test_graph_add_contiguous")
         from graph import add_contiguous_before_ari
         a = Tensor(None, shape=(3,2,3),strides=(6,0,3),is_realized=False)
         b = Tensor(None, shape=(3,2,3),strides=(6,0,3),is_realized=False)
