@@ -34,24 +34,6 @@ def is_function_arithmetic(tensor:Tensor):
     arithmetic_funcs = {"add","sub","matmul","maximum","mse","max","mul","div","exp","sum","sqrt"}
     return tensor.function is not None and tensor.function.name in arithmetic_funcs
 
-def is_function_add_sub(tensor:Tensor):
-    return tensor.function is not None and tensor.function.name in {"add","sub"}
-
-def is_function_mul_div(tensor:Tensor):
-    return tensor.function is not None and tensor.function.name in {"mul","div"}
-
-def is_function_arith_binop(tensor:Tensor):
-    return is_function_add_sub(tensor) or is_function_mul_div(tensor)
-
-def is_function_matmul(tensor:Tensor):
-    return tensor.function is not None and tensor.function.name == "matmul"
-
-def is_only_one_src_realized(tensor:Tensor):
-    if tensor.function is None: return False
-    assert len(tensor.function.parents)==2
-    r1, r2 = tensor.function.parents
-    return r1.is_realized ^ r2.is_realized
-
 class Graph:
     def __init__(self, tensor:Tensor):
          self.root = tensor
