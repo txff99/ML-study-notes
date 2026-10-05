@@ -11,17 +11,25 @@ class Module:
         raise NotImplementedError("Each module must implement its own forward pass.")
 
 class Linear(Module):
-    def __init__(self, in_feature:int, out_feature:int, bias:bool = False):
+    def __init__(self, in_feature:int, out_feature:int, bias:float|np.ndarray = None, weights=None):
         super().__init__()
-        self.weights = Tensor(np.random.uniform(-np.sqrt(6/in_feature),np.sqrt(6/in_feature),(in_feature,out_feature)))
-        self.bias = Tensor(np.zeros(out_feature))
-        if bias == True:
-            self.bias = Tensor(np.random.rand(out_feature))
+        self.weights = weights if weights is not None else Tensor(np.random.rand(out_feature,in_feature))
+        self.bias = None
+        self.out_feature = out_feature
+        self.in_feature = in_feature
+        if bias is not None and isinstance(bias, float):
+            self.bias = np.full((out_feature), bias)
+        else:
+            self.bias = Tensor(np.zeros((out_feature))) 
     
     def __call__(self,x:Tensor) -> Tensor:
         assert isinstance(x,Tensor), "input should be a Tensor"
-        assert x.shape[-1] == self.weights.shape[0], f"tensor shape should be (...,{self.weights.shape[0]})"
-        return x @ self.weights + self.bias.expand(x.shape[0])
+        assert x.shape[-1] == self.weights.shape[1], f"tensor shape should be (...,{self.weights.shape[1]})"
+        if len(x.shape) == 2:
+            bias = self.bias.reshape(1, self.out_feature)
+        else:
+            bias = self.bias.reshape(1, 1, self.out_feature)
+        return x @ self.weights.transpose(1,0) + bias
     
 class ReLU(Module):
     def __init__(self):
@@ -34,8 +42,8 @@ class ReLU(Module):
 class MLP(Module):
     def __init__(self, in_dim:int, hidden_dim:int, out_dim:int):
         super().__init__()
-        self.ll1 = Linear(in_dim, hidden_dim, True)
-        self.ll2 = Linear(hidden_dim, out_dim, True)
+        self.ll1 = Linear(in_dim, hidden_dim)
+        self.ll2 = Linear(hidden_dim, out_dim)
         self.relu = ReLU()
 
     def __call__(self, x:Tensor) -> Tensor:
@@ -45,63 +53,57 @@ class SoftMax(Module):
     def __init__(self):
         super().__init__()
     
-    def __call__(self, x:Tensor) -> Tensor:
+    def __call__(self, x:Tensor, dim:int=-1) -> Tensor:
         # exp(xi - rowmax(xi)) / sum(exp(xi - rowmax(xi)))
-        rowmax = x.max(dim=1)
+        rowmax = x.max(dim=dim,keepdims=True)
         exp = (x-rowmax).exp()
-        return exp / exp.sum(dim=1)
+        return exp / exp.sum(dim=dim,keepdims=True)
     
 class SelfAttention(Module):
     def __init__(self, d_model):
         super().__init__()
         self.d_model = d_model
-        self.q_proj = Linear(d_model, d_model, True)
-        self.k_proj = Linear(d_model, d_model, True)
-        self.v_proj = Linear(d_model, d_model, True)
+        self.q_proj = Linear(d_model, d_model)
+        self.k_proj = Linear(d_model, d_model)
+        self.v_proj = Linear(d_model, d_model)
     
-    def __call__(self, x: Tensor):
+    def __call__(self, x: Tensor, mask=None):
         """ 
-            x : (seq, C)
+            x : (b, seq, C)
         """
         q = self.q_proj(x)
-        k_t = self.k_proj(x).transpose()
+        k_t = self.k_proj(x).transpose(2,1)
         v = self.v_proj(x)
         scale_factor = Tensor(1/np.sqrt(self.d_model)).expand(x.shape[0]).expand(x.shape[0])
         score = (q @ k_t) / scale_factor
         softmax = SoftMax()
-        return softmax(score) @ v
+        return softmax(score + mask) @ v
 
 class MHA(Module):
-    def __init__(self, d_model, num_head, num_kv):
+    def __init__(self, d_model, num_head):
         super().__init__()
-        assert d_model % num_head == 0 and d_model % num_kv == 0,"head dim and kv dim should be divisable by d_model"
-        assert num_kv <= num_head, "kv_dim should be smaller than head_dim"
-        assert num_head % num_kv == 0, "head_dim should be divisable by kv_dim"
-        
+        assert d_model % num_head == 0,"head dim should be divisable by d_model"
         self.num_head = num_head
         self.num_kv = num_kv
         self.d_model = d_model
         self.head_dim = d_model // num_head
-        self.kv_rep = num_head // num_kv
-        self.q_proj = [Linear(d_model, self.head_dim, True) for _ in range(self.num_head)]
-        self.k_proj = [Linear(d_model, self.head_dim, True) for _ in range(self.num_kv)]
-        self.v_proj = [Linear(d_model, self.head_dim, True) for _ in range(self.num_kv)]
+        self.qkv_proj = Linear(d_model, 3*d_model)
         self.final_proj = Linear(d_model, d_model, True) 
+        self.softmax = SoftMax()
     
-    def __call__(self, x: Tensor):
+    def __call__(self, x: Tensor, mask=None):
         """ 
-            x : (seq, C)
+            x : (b, seq, C)
         """
-        res = Tensor(None, shape=x.shape)
-        for i in range(self.num_head):
-            q = self.q_proj[i](x)
-            k_t = self.k_proj[i // self.kv_rep](x).transpose()
-            v = self.v_proj[i // self.kv_rep](x)
-            scale_factor = Tensor(1/np.sqrt(self.d_model)).expand(x.shape[0]).expand(x.shape[0])
-            score = (q @ k_t) / scale_factor
-            softmax = SoftMax()
-            res.concate(softmax(score) @ v, dim = -1)
-        return self.final_proj(res)
+        qkv = self.qkv_proj(x) # (b, s, 3d)
+        b, s, _ = qkv.shape
+        qkv = qkv.reshape(b, s, 3, self.num_head, self.head_dim).transpose(3,1) # (b, h, 3, s, hd)
+        q = qkv[:,:,0]
+        k = qkv[:,:,1]
+        v = qkv[:,:,2]
+        scale_factor = Tensor(1/np.sqrt(self.d_model))
+        score = q @ k.transpose(4,3)/scale_factor
+        return self.final_proj(self.softmax(score + mask) @ v)
 
 
 

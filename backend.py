@@ -43,7 +43,7 @@ class CPU(Backend):
             dst.data = srcs[0].data / srcs[1].data
         elif optype == OpType.MATMUL:
             assert len(srcs) == 2, "srcs num does not match"
-            dst.data = (srcs[0].data.reshape(srcs[0].shape) @ srcs[1].data.reshape(srcs[1].shape)).flatten()
+            dst.data = (np.matmul(srcs[0].data.reshape(srcs[0].shape), srcs[1].data.reshape(srcs[1].shape))).flatten()
         elif optype == OpType.EXPAND:
             assert len(srcs) == 1, "srcs num does not match"
             dst.data = srcs[0].data

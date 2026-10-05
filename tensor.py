@@ -199,7 +199,7 @@ class Tensor:
         from function import MatMul
         assert isinstance(other, Tensor), "The operand must be an instance of Tensor"
         assert self.shape[-1] == other.shape[0], f"Incompatible shapes for matrix multiplication: {self.shape} and {other.shape}"
-        return Tensor(None,function=MatMul(self,other), shape=(self.shape[0], other.shape[1]), is_realized=False)
+        return Tensor(None,function=MatMul(self,other), shape=(*self.shape[:-1], other.shape[1]), is_realized=False)
     
     def expand(self, *expanded_shape: tuple[int]) -> Tensor:
         """
@@ -211,14 +211,14 @@ class Tensor:
             "expanded shape should have same dimensions as source shape"
         assert all(s == e or s == 1 for s, e in zip(self.shape, expanded_shape)), \
             "expand should perform on singleton dimension"
-        strides = self.strides
+        strides = list(self.strides)
         if strides is None:
             strides = get_default_strides(self.shape)
         for i, dim in enumerate(self.shape):
             if dim == 1 and expanded_shape[i] != self.shape[i]:
                 strides[i] = 0
 
-        return Tensor(None,function=Expand(self,expanded_shape),shape=expanded_shape,strides=strides, is_realized=False)
+        return Tensor(None,function=Expand(self,expanded_shape),shape=expanded_shape,strides=tuple(strides), is_realized=False)
 
     def transpose(self, dim1, dim2) -> Tensor:
         from function import Transpose
@@ -304,20 +304,30 @@ class Tensor:
         from function import Sqrt
         return Tensor(None, function=Sqrt(self), shape=self.shape, is_realized=False)
 
-    def max(self, dim:int) -> Tensor:
+    def max(self, dim:int, keepdims=False) -> Tensor:
+        if dim < 0: dim = len(self.shape) + dim
         assert dim < len(self.shape)
         from function import Max
-        return Tensor(None, function=Max(self, dim), shape=self.shape[:dim] + self.shape[dim+1:], is_realized=False)
+        if keepdims:
+            new_shape = self.shape[:dim] + (1,) + self.shape[dim+1:]
+        else:
+            new_shape = self.shape[:dim] + self.shape[dim+1:]
+        return Tensor(None, function=Max(self, dim), shape=new_shape, is_realized=False)
     
     def where(self, mask:Tensor, f:Tensor) -> Tensor:
         assert mask.shape == self.shape and self.shape == f.shape
         from function import Where
         return Tensor(None, function=Where(mask, self, f), shape=self.shape, is_realized=False)
 
-    def sum(self, dim:int) -> Tensor:
+    def sum(self, dim:int, keepdims=False) -> Tensor:
+        if dim < 0: dim = len(self.shape) + dim
         assert dim < len(self.shape)
         from function import Sum
-        return Tensor(None, function=Sum(self, dim), shape=self.shape[:dim] + self.shape[dim+1:], is_realized=False)
+        if keepdims:
+            new_shape = self.shape[:dim] + (1,) + self.shape[dim+1:]
+        else:
+            new_shape = self.shape[:dim] + self.shape[dim+1:]
+        return Tensor(None, function=Sum(self, dim), shape=new_shape, is_realized=False)
     
     def mseLoss(self) -> Tensor:
         from function import MSELoss

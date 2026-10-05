@@ -1,4 +1,5 @@
 import numpy as np
+
 def get_default_strides(shape: tuple|list) -> list:
     suffix = 1
     strides = []
@@ -36,6 +37,6 @@ def get_new_shape_from_index(key, shape, strides, offset):
     return new_shape, new_strides, offset
 
 def align_tensor_shape(tensor, other):
-    new_shape = tuple(np.maximum(tensor.shape, other.shape))
+    new_shape = tuple(max(s1, s2) for s1, s2 in zip(tensor.shape, other.shape))
     return tensor.expand(*new_shape), other.expand(*new_shape)
         
