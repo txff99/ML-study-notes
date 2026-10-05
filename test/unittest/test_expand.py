@@ -13,6 +13,13 @@ class TestExpand(unittest.TestCase):
         b = a.expand(3,2,3)
         self.assertTrue(np.allclose(b.numpy(),raw.repeat(2,axis=1)))
     
+    def test_expand_same_shape(self):
+        np.random.seed(1)
+        raw = np.random.rand(3,1,3)
+        a = Tensor(raw)
+        b = a.expand(3,1,3)
+        self.assertTrue(b is a)
+    
     def test_multidim_success(self):
         np.random.seed(1)
         raw = np.random.rand(3,1,3,1)

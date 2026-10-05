@@ -2,7 +2,7 @@ from __future__ import annotations
 import numpy as np
 from typing import List
 from enum import Enum
-from util import get_default_strides, canonicalize_index, get_new_shape_from_index
+from util import get_default_strides, canonicalize_index, get_new_shape_from_index, align_tensor_shape
 
 """
 tensor used to provide interface for data operation
@@ -163,39 +163,47 @@ class Tensor:
 
     def __add__(self, other: Tensor) -> Tensor:
         from function import Add
-        assert self.shape==other.shape , "tensor shape is not the same"
+        if self.shape != other.shape: self, other = align_tensor_shape(self,other)
+        assert self.shape==other.shape , f"tensor shape is not the same {self.shape}, {other.shape}"
         assert isinstance(other, Tensor), "The operand must be an instance of Tensor"
         return Tensor(None, function=Add(self,other), shape=other.shape ,is_realized=False)
     
     def __sub__(self, other:Tensor) -> Tensor:
         from function import Sub
-        assert self.shape==other.shape , "tensor shape is not the same"
+        if self.shape != other.shape: self, other = align_tensor_shape(self,other)
+        assert self.shape==other.shape , f"tensor shape is not the same {self.shape}, {other.shape}"
         assert isinstance(other, Tensor), "The operand must be an instance of Tensor"
         return Tensor(None,function=Sub(self,other), shape=other.shape,is_realized=False)
     
     def __mul__(self, other:Tensor) -> Tensor:
         from function import Mul
-        assert self.shape==other.shape , "tensor shape is not the same"
+        if self.shape != other.shape: self, other = align_tensor_shape(self,other)
+        assert self.shape==other.shape , f"tensor shape is not the same {self.shape}, {other.shape}"
         assert isinstance(other, Tensor), "The operand must be an instance of Tensor"
         return Tensor(None,function=Mul(self,other), shape=other.shape,is_realized=False)
 
     def __truediv__(self, other:Tensor) -> Tensor:
         from function import Div
-        assert self.shape==other.shape , "tensor shape is not the same"
+        if self.shape != other.shape: self, other = align_tensor_shape(self,other)
+        assert self.shape==other.shape , f"tensor shape is not the same {self.shape}, {other.shape}"
         assert isinstance(other, Tensor), "The operand must be an instance of Tensor"
         return Tensor(None,function=Div(self,other), shape=other.shape,is_realized=False)
 
     def __matmul__(self, other: Tensor) -> Tensor:
+        return self.matmul(other)
+            
+    def matmul(self, other:Tensor) -> Tensor:
         from function import MatMul
         assert isinstance(other, Tensor), "The operand must be an instance of Tensor"
         assert len(self.shape) == 2 and len(other.shape)==2, "matmul only support 2 dim as input"
         assert self.shape[-1] == other.shape[0], f"Incompatible shapes for matrix multiplication: {self.shape} and {other.shape}"
         return Tensor(None,function=MatMul(self,other), shape=(self.shape[0], other.shape[1]), is_realized=False)
-    
+
     def expand(self, *expanded_shape: tuple[int]) -> Tensor:
         """
         expand only return a view
         """
+        if expanded_shape == self.shape: return self
         from function import Expand
         assert len(self.shape) == len(expanded_shape), \
             "expanded shape should have same dimensions as source shape"
@@ -311,10 +319,6 @@ class Tensor:
     def replace(self, other: Tensor):
         self.__dict__.update(other.__dict__)
 
-    def makeFakeEdge(self, other: Tensor) -> Tensor:
-        from function import FakeFunction
-        return Tensor(None, shape=self.shape, function=FakeFunction(self, other), is_realized=False)
-    
     def backward(self, level:str = None):
         if self.function is None: return
         if self.gradient is None: 

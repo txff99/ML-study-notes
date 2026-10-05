@@ -29,6 +29,18 @@ class TestAri(unittest.TestCase):
         d = a-b
         self.assertTrue(np.allclose(c.numpy(),raw1+np.broadcast_to(raw2,(3,1,3))))
         self.assertTrue(np.allclose(d.numpy(),raw1-np.broadcast_to(raw2,(3,1,3))))
+
+    def test_expand_before_arithmetic(self):
+        np.random.seed(1)
+        raw1 = np.random.rand(3,1,3)
+        np.random.seed(2)
+        raw2 = np.random.rand(3,1,1)
+        a = Tensor(raw1)
+        b = Tensor(raw2)
+        c = a+b
+        d = a-b
+        self.assertTrue(np.allclose(c.numpy(),raw1+np.broadcast_to(raw2,(3,1,3))))
+        self.assertTrue(np.allclose(d.numpy(),raw1-np.broadcast_to(raw2,(3,1,3))))
     
     @unittest.expectedFailure
     def test_invaliddim_fail(self):
