@@ -21,7 +21,7 @@ class CPU(Backend):
         self.supported_ops = {OpType.ADD, OpType.SUB, OpType.MUL, OpType.DIV, OpType.MATMUL, OpType.EXPAND, 
                             OpType.MSELOSS, OpType.MAX, OpType.TRANSPOSE, OpType.CONTIGUOUS, 
                             OpType.MAXIMUM, OpType.SUM, OpType.SQRT, OpType.EXP,OpType.INDEXGET,
-                            OpType.INDEXPUT, OpType.RESHAPE}
+                            OpType.INDEXPUT, OpType.RESHAPE, OpType.WHERE}
     
     def execute(self, op: Op):
         optype: OpType = op.optype
@@ -84,6 +84,10 @@ class CPU(Backend):
         elif optype == OpType.EXP:
             assert len(srcs) == 1, "srcs num does not match"
             dst.data = np.exp(srcs[0].data)
+        elif optype == OpType.WHERE:
+            assert len(srcs) == 3, "srcs num does not match"
+            mask, t, f = srcs
+            dst.data = np.where(mask.data, t.data, f.data)
         else:
             raise NotImplementedError(f"Operation '{optype}' is not implemented.")
 

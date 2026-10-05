@@ -218,3 +218,15 @@ class Sum(Function):
         mem = self.parents[0]
         mem.gradient = grad
         mem.backward()
+
+class Where(Function):
+    def __init__(self, mask:Tensor, t: Tensor, f: Tensor):
+        # (N, dim) -> (N,)
+        super().__init__(mask, t, f)
+        self.name = "where"
+        self.mask = mask
+        self.t = t
+        self.f = f
+
+    def backward(self, grad: np.array):
+        raise NotImplementedError

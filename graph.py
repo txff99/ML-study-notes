@@ -102,7 +102,7 @@ def canonicalize(tensor:Tensor):
             return
 
 def add_contiguous_before_ari(tensor: Tensor, args=None):
-    arithmetic_funcs = {"add","sub","matmul","maximum","mse","max","mul","div","exp","sum","sqrt"}
+    arithmetic_funcs = {"add","sub","matmul","maximum","mse","max","mul","div","exp","sum","sqrt", "where"}
     if is_function_arithmetic(tensor):
         # replace tensor parent with parent.contiguous
         for i,_ in enumerate(tensor.function.parents):

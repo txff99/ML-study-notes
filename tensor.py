@@ -26,6 +26,7 @@ class OpType(Enum):
     INDEXGET = 15
     INDEXPUT = 16
     RESHAPE = 17
+    WHERE = 18
 
 FUNCTION_TO_OPTYPE = {
     "add": OpType.ADD,
@@ -45,6 +46,7 @@ FUNCTION_TO_OPTYPE = {
     "index_get": OpType.INDEXGET,
     "index_put": OpType.INDEXPUT,
     "reshape": OpType.RESHAPE,
+    "where": OpType.WHERE
 }
 
 class Op:
@@ -301,6 +303,11 @@ class Tensor:
         from function import Max
         return Tensor(None, function=Max(self, dim), shape=self.shape[:dim] + self.shape[dim+1:], is_realized=False)
     
+    def where(self, mask:Tensor, f:Tensor) -> Tensor:
+        assert mask.shape == self.shape and self.shape == f.shape
+        from function import Where
+        return Tensor(None, function=Where(mask, self, f), shape=self.shape, is_realized=False)
+
     def sum(self, dim:int) -> Tensor:
         assert dim < len(self.shape)
         from function import Sum
