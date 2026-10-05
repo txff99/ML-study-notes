@@ -1,5 +1,6 @@
 from __future__ import annotations
 import numpy as np
+import math
 from typing import List
 from enum import Enum
 from util import get_default_strides, canonicalize_index, get_new_shape_from_index, align_tensor_shape
@@ -197,10 +198,9 @@ class Tensor:
     def matmul(self, other:Tensor) -> Tensor:
         from function import MatMul
         assert isinstance(other, Tensor), "The operand must be an instance of Tensor"
-        assert len(self.shape) == 2 and len(other.shape)==2, "matmul only support 2 dim as input"
         assert self.shape[-1] == other.shape[0], f"Incompatible shapes for matrix multiplication: {self.shape} and {other.shape}"
         return Tensor(None,function=MatMul(self,other), shape=(self.shape[0], other.shape[1]), is_realized=False)
-
+    
     def expand(self, *expanded_shape: tuple[int]) -> Tensor:
         """
         expand only return a view
@@ -222,6 +222,7 @@ class Tensor:
 
     def transpose(self, dim1, dim2) -> Tensor:
         from function import Transpose
+        assert dim1 > dim2, "dim1 should be bigger than dim2"
         assert dim1 < len(self.shape) and dim2 < len(self.shape), "dimension out of bound"
         new_shape = list(self.shape)
         new_shape[dim1], new_shape[dim2] = self.shape[dim2], self.shape[dim1]
@@ -231,6 +232,11 @@ class Tensor:
 
     def reshape(self, *new_shape: tuple[int]) -> Tensor:
         from function import Reshape
+        if -1 in new_shape:
+            where_1 = new_shape.index(-1)
+            lst = list(new_shape)
+            lst[where_1] = -math.prod(self.shape) // math.prod(new_shape)
+            new_shape = tuple(lst)
         assert np.prod(new_shape) == np.prod(self.shape), "element num does not match"
         new_strides = get_default_strides(new_shape)
         return Tensor(None, function=Reshape(self, new_shape), shape=new_shape,strides=new_strides, offset=self.offset, is_realized=False)

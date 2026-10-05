@@ -25,6 +25,18 @@ class TestReshape(unittest.TestCase):
         self.assertTrue(b.strides==(3,3,1,1))
         b.realize()
         self.assertTrue(np.allclose(a.data,b.data))
+
+    def test_reshape_flatten(self):
+        np.random.seed(1)
+        raw = np.random.rand(3,2,3)
+        a = Tensor(raw)
+        b = a.reshape(-1)
+        c = a.reshape(-1,3)
+        print(b.shape)
+        self.assertTrue(b.shape==(18,))
+        self.assertTrue(c.shape==(6,3))
+        b.realize()
+        self.assertTrue(np.allclose(a.data,b.data))
     
     @unittest.expectedFailure
     def test_invaliddim_fail(self):
