@@ -1,6 +1,7 @@
 from tensor import Tensor
 from typing import Callable
 from backend import Backend
+from typing import List
 """
 how to rewrite graph
 1. traverse
@@ -35,13 +36,14 @@ def is_function_arithmetic(tensor:Tensor):
     return tensor.function is not None and tensor.function.name in arithmetic_funcs
 
 class Graph:
-    def __init__(self, tensor:Tensor):
-         self.root = tensor
+    def __init__(self, *tensors:List[Tensor]):
+         self.roots = list(tensors)
     
     def printAST(self):
-        if self.root is not None:
-            print(self.root.function.name, hex(id(self.root))[-4:], self.root.shape)
-            self.root.function.printAST()
+        for root in self.roots:
+            if root is not None:
+                print(root.function.name, hex(id(root))[-4:], root.shape)
+                root.function.printAST()
 
     def toposort(self) -> list[Tensor]:
         visited = set()
@@ -53,15 +55,16 @@ class Graph:
             for mem in tensor.function.parents:
                 dfs(mem)
             linear_tensors.append(tensor)
-        dfs(self.root)
+        for root in self.roots:
+            dfs(root)
         return linear_tensors
 
     def rewrite(self, passes: list[Callable]|Callable):
         if callable(passes): passes = [passes]
         for p in passes:
-            self.apply_pass(self.root, p)        
+            self.apply_pass(self.roots, p)        
 
-    def apply_pass(self, tensor: Tensor, p: Callable):
+    def apply_pass(self, tensors: List[Tensor], p: Callable):
         visited = set()
         def dfs(tensor: Tensor):
             if tensor in visited: return
@@ -70,7 +73,8 @@ class Graph:
             for mem in tensor.function.parents:
                 dfs(mem)
             p(tensor)
-        dfs(tensor)
+        for tensor in tensors:
+            dfs(tensor)
     
     def is_realizable(self):
         edges = []
@@ -83,7 +87,8 @@ class Graph:
                 return
             for mem in tensor.function.parents:
                 dfs(mem)
-        dfs(self.root)
+        for root in self.roots:
+            dfs(root)  
         return all([e.is_realized for e in edges])
 
 def canonicalize(tensor:Tensor):
