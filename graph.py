@@ -36,11 +36,12 @@ def is_function_arithmetic(tensor:Tensor):
     return tensor.function is not None and tensor.function.name in arithmetic_funcs
 
 class Program:
-    def __init__(self, inputs, ops, outputs, backend=CPU()):
+    def __init__(self, inputs, ops, outputs, backend=CPU(), life_snapshots=None):
         self.inputs = inputs
         self.ops: List[Op] = ops 
         self.outputs = outputs
         self.backend = backend
+        self.life_snapshots = life_snapshots
 
     def run(self, inputs):
         from engine import Engine
@@ -66,19 +67,60 @@ class Graph:
                 print(root.function.name, hex(id(root))[-4:], root.shape)
                 root.function.printAST()
 
-    def toposort(self) -> list[Tensor]:
+    def toposort(self, enable_lifetime_analysis=False) -> list[Tensor]:
         visited = set()
         linear_tensors = []
         def dfs(tensor: Tensor):
+            if tensor.function is None: return
             if tensor in visited: return
             visited.add(tensor)    
-            if tensor.function is None: return
             for mem in tensor.function.parents:
                 dfs(mem)
             linear_tensors.append(tensor)
         for root in self.roots:
             dfs(root)
         return linear_tensors
+
+    def get_lifetime_snapshots(self):
+        ref_tracker = {}
+        life_snapshots = []
+        life_snapshot = []
+        visited = set()
+        def get_tensor_refcount(tensor: Tensor):
+            if tensor.function is None: return
+            tensor_id = hex(id(tensor))[-4:]
+            if tensor_id not in ref_tracker: ref_tracker[tensor_id] = 0
+            ref_tracker[tensor_id] += 1
+            if tensor in visited: return
+            visited.add(tensor)    
+            for mem in tensor.function.parents:
+                get_tensor_refcount(mem)
+
+        for root in self.roots:
+            get_tensor_refcount(root)
+        
+        visited.clear()
+        def get_tensor_snapshot(tensor: Tensor):
+            if tensor.function is None: return
+            tensor_id = hex(id(tensor))[-4:]
+            if tensor in visited: return
+            visited.add(tensor)  
+            for mem in tensor.function.parents:
+                get_tensor_snapshot(mem)
+
+            life_snapshot.append(tensor_id)
+            pre = life_snapshot.copy()
+            for mem in tensor.function.parents:
+                mem_id = hex(id(mem))[-4:]
+                if mem_id in ref_tracker:
+                    ref_tracker[mem_id]-=1
+                    if ref_tracker[mem_id]==0:
+                        life_snapshot.remove(mem_id)
+            post = life_snapshot.copy()
+            life_snapshots.append((pre,post))
+        for root in self.roots:
+            get_tensor_snapshot(root)
+        return life_snapshots
 
     def rewrite(self, passes: list[Callable]|Callable):
         if callable(passes): passes = [passes]
@@ -115,7 +157,8 @@ class Graph:
     def export(self, inputs:List[Tensor]):
         tensors = self.toposort()
         ops = [Op(FUNCTION_TO_OPTYPE[tensor.function.name], tensor.function.parents, tensor) for tensor in tensors]
-        return Program(ops=ops, inputs=inputs, outputs=self.roots)
+        snapshots = self.get_lifetime_snapshots()
+        return Program(ops=ops, inputs=inputs, outputs=self.roots, life_snapshots=snapshots)
 
 def canonicalize(tensor:Tensor):
     c1 = Tensor(1, is_fake=True)
