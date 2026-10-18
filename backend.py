@@ -27,7 +27,6 @@ class CPU(Backend):
         optype: OpType = op.optype
         srcs: List[Tensor] = op.srcs
         dst: Tensor = op.dst
-        if dst.is_realized == True: return
         # optype matching
         if optype == OpType.ADD:
             assert len(srcs) == 2, "srcs num does not match"

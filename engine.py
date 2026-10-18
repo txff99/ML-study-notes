@@ -9,9 +9,10 @@ engine used to run the ops
 """
 
 class Engine:
-    def __init__(self, backend: Backend, ops: List[Op] = None):
+    def __init__(self, backend: Backend, ops: List[Op] = None, mode="once"):
         self.backend = backend
         self.ops = ops
+        self.mode=mode
 
     def run(self):
         assert self.ops is not None , "ops should be applied before run"
@@ -19,7 +20,6 @@ class Engine:
             optype: OpType = op.optype
             srcs: List[Tensor] = op.srcs
             dst: Tensor = op.dst
-            if dst.is_realized == True: continue
             assert optype in self.backend.supported_ops, f"{optype} not supported by backend"
             self.backend.execute(op)
-            dst.is_realized = True
+            if self.mode == "once": dst.is_realized = True

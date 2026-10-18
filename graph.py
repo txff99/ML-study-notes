@@ -1,7 +1,7 @@
-from tensor import Tensor
+from tensor import Tensor, Op, FUNCTION_TO_OPTYPE
 from typing import Callable
-from backend import Backend
-from typing import List
+from backend import Backend, CPU
+from typing import List, Tuple
 """
 how to rewrite graph
 1. traverse
@@ -34,6 +34,27 @@ def all_parents_evaluated(tensor:Tensor):
 def is_function_arithmetic(tensor:Tensor):
     arithmetic_funcs = {"add","sub","matmul","maximum","mse","max","mul","div","exp","sum","sqrt"}
     return tensor.function is not None and tensor.function.name in arithmetic_funcs
+
+class Program:
+    def __init__(self, inputs, ops, outputs, backend=CPU()):
+        self.inputs = inputs
+        self.ops: List[Op] = ops 
+        self.outputs = outputs
+        self.backend = backend
+
+    def run(self, inputs):
+        from engine import Engine
+        assert len(inputs)==len(self.inputs) and \
+         all([inp.is_realized and inp.shape for inp in inputs]) and \
+         all([inp1.shape == inp2.shape for inp1, inp2 in zip(inputs,self.inputs)])
+        # copy inputs into input buffer
+        for dst, src in zip(self.inputs, inputs):
+            dst.data = src.data
+        engine = Engine(self.backend, self.ops, mode="replay")
+        engine.run()
+        for output in self.outputs:
+            output.is_realized = True
+        return self.outputs
 
 class Graph:
     def __init__(self, *tensors:List[Tensor]):
@@ -90,6 +111,11 @@ class Graph:
         for root in self.roots:
             dfs(root)  
         return all([e.is_realized for e in edges])
+
+    def export(self, inputs:List[Tensor]):
+        tensors = self.toposort()
+        ops = [Op(FUNCTION_TO_OPTYPE[tensor.function.name], tensor.function.parents, tensor) for tensor in tensors]
+        return Program(ops=ops, inputs=inputs, outputs=self.roots)
 
 def canonicalize(tensor:Tensor):
     c1 = Tensor(1, is_fake=True)
