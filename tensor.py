@@ -3,11 +3,41 @@ import numpy as np
 import math
 from typing import List
 from enum import Enum
-from util import get_default_strides, canonicalize_index, get_new_shape_from_index, align_tensor_shape
+from util import *
+from dataclasses import dataclass
 
 """
 tensor used to provide interface for data operation
 """
+
+@dataclass
+class sint:
+    max: int|sint
+    data: int|sint = None
+    is_realized: bool = False
+    min: int|sint = 1
+    function: function = None
+    def __mul__(self, x: int|sint):
+        from function import Mul
+        return sint(max=self.max*x, min=self.min*x,function=Mul(self, x))
+    def __rmul__(self, x: int|sint):
+        return self.__mul__(x)
+
+    def __add__(self, x:int|sint):
+        from function import Add
+        return sint(max=self.max+x, min=self.min+x,function=Add(self, x))
+    def __radd__(self, x: int|sint):
+        return self.__add__(x)
+
+    def __div__(self, x: int):
+        raise NotImplementedError
+
+    def bind(self, x: int):
+        assert isinstance(x, int)
+        self.data = x
+
+    def __repr__(self):
+        return f"symint(min={self.min}, max={self.max}, function={self.function})"
 
 class OpType(Enum):
     ADD = 1
@@ -81,16 +111,29 @@ class Tensor:
         self.is_fake=is_fake
     
     @property
+    def has_dyshape(self):
+        return is_tensor_dyshape(self)
+    
+    @property
     def shape(self):
-        return tuple(self._shape)
+        new_shape = self._shape
+        if self.has_dyshape:
+            new_shape = get_real_shape(self)
+        return tuple(new_shape)
 
     @property
     def strides(self):
-        return tuple(self._strides) if self._strides is not None else get_default_strides(self.shape)
+        new_stride = self._strides
+        if self.has_dyshape:
+            new_stride = get_real_strides(self)
+        return tuple(new_stride) if new_stride is not None else tuple(get_default_strides(self.shape))
 
     @property
     def offset(self):
-        return self._offset
+        offset = self._offset
+        if self.has_dyshape:
+            offset = get_real_offset(self)
+        return offset
     
     @property
     def is_scalar(self):
@@ -102,17 +145,6 @@ class Tensor:
             contiguous_tensor.realize()
         if self.is_scalar: return contiguous_tensor.data
         return contiguous_tensor.data.reshape(self.shape)
-
-    def lower(self) -> List(Op): 
-        # lower a dag to ops
-        from graph import Graph
-        g = Graph(self)
-        if self.backend.name == "cpu":
-            from graph import add_contiguous_before_ari
-            g.rewrite(add_contiguous_before_ari)
-        tensors = g.toposort()
-        ops = [Op(FUNCTION_TO_OPTYPE[tensor.function.name], tensor.function.parents, tensor) for tensor in tensors]
-        return ops
     
     def toGPU(self):
         """allocate mem on gpu for itself and its parents"""
@@ -156,7 +188,9 @@ class Tensor:
     def realize(self, backend=None, cleanup_after_eval=True, plan: List[Op]=None):
         from engine import Engine
         if plan is None:
-            plan = self.lower()
+            from graph import Graph
+            g = Graph(self)
+            plan = g.lower()
         backend=self.backend if backend is None else backend
         engine = Engine(backend, plan)
         engine.run()
@@ -209,7 +243,8 @@ class Tensor:
         from function import Expand
         assert len(self.shape) == len(expanded_shape), \
             "expanded shape should have same dimensions as source shape"
-        assert all(s == e or s == 1 for s, e in zip(self.shape, expanded_shape)), \
+        # skip if shape has dynamic int
+        assert all(s == e or s == 1 or e == 1 for s, e in zip(self.shape, expanded_shape) if not isinstance(s, sint) and not isinstance(e, sint)), \
             "expand should perform on singleton dimension"
         strides = list(self.strides)
         if strides is None:

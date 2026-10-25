@@ -45,11 +45,14 @@ class Program:
 
     def run(self, inputs):
         from engine import Engine
+        from util import bind_tensor_dyshape
         assert len(inputs)==len(self.inputs) and \
          all([inp.is_realized and inp.shape for inp in inputs]) and \
-         all([inp1.shape == inp2.shape for inp1, inp2 in zip(inputs,self.inputs)])
+         all([inp1.shape == inp2.shape for inp1, inp2 in zip(inputs,self.inputs) if not inp2.has_dyshape])
         # copy inputs into input buffer
         for dst, src in zip(self.inputs, inputs):
+            if dst.has_dyshape:
+                bind_tensor_dyshape(dst, src)
             dst.data = src.data
         engine = Engine(self.backend, self.ops, mode="replay")
         engine.run()
@@ -67,7 +70,7 @@ class Graph:
                 print(root.function.name, hex(id(root))[-4:], root.shape)
                 root.function.printAST()
 
-    def toposort(self, enable_lifetime_analysis=False) -> list[Tensor]:
+    def toposort(self) -> list[Tensor]:
         visited = set()
         linear_tensors = []
         def dfs(tensor: Tensor):
@@ -80,6 +83,21 @@ class Graph:
         for root in self.roots:
             dfs(root)
         return linear_tensors
+    
+    def lower(self) -> List[Op]: 
+        # lower a dag to ops
+        from util import dyint_in_tensor
+        from tensor import sint
+        self.rewrite(add_contiguous_before_ari)
+        tensors = self.toposort()
+        ops = []
+        for tensor in tensors:
+            tensor_op = []
+            if tensor.has_dyshape:
+                tensor_op = [Op(FUNCTION_TO_OPTYPE[dyint.function.name], dyint.function.parents, tensor) for dyint in dyint_in_tensor(tensor) if isinstance(dyint.data, sint)]
+            tensor_op.append(Op(FUNCTION_TO_OPTYPE[tensor.function.name], tensor.function.parents, tensor))
+            ops.extend(tensor_op)
+        return ops
 
     def get_lifetime_snapshots(self):
         ref_tracker = {}
@@ -155,8 +173,7 @@ class Graph:
         return all([e.is_realized for e in edges])
 
     def export(self, inputs:List[Tensor]):
-        tensors = self.toposort()
-        ops = [Op(FUNCTION_TO_OPTYPE[tensor.function.name], tensor.function.parents, tensor) for tensor in tensors]
+        ops = self.lower()
         snapshots = self.get_lifetime_snapshots()
         return Program(ops=ops, inputs=inputs, outputs=self.roots, life_snapshots=snapshots)
 

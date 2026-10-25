@@ -5,7 +5,7 @@ import unittest
 sys.path.append("../..")
 from tensor import Tensor
 from graph import Graph
-class TestNN(unittest.TestCase):
+class TestRuntime(unittest.TestCase):
     def test_replay(self):
         np.random.seed(1)
         src = np.random.rand(32,4)

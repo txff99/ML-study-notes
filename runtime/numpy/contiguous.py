@@ -11,7 +11,6 @@ def contiguous_numpy_impl(src: Tensor) -> np.array:
     if len(shape) == 0:
         return src.data.flatten()[src.offset]
     new_data = np.zeros(shape).flatten()
-    assert src.is_realized, "src tensor need to be realized before calling contiguous_numpy_impl"
     old_data = src.data
     offset = 0 if src.offset is None else src.offset
     for ptr in range(np.prod(shape)):

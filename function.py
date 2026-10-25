@@ -1,5 +1,5 @@
 import numpy as np
-from tensor import Tensor
+from tensor import Tensor, sint
 
 LEVEL_BLANK = "|    "
 
@@ -8,7 +8,7 @@ function use to store compute graph
 """
 
 class Function:
-    def __init__(self, *mem:Tensor):
+    def __init__(self, *mem:Tensor|sint):
         self.parents = list(mem)
         self.name: str = None
         self.res: np.array = None

@@ -5,7 +5,7 @@ import unittest
 sys.path.append("../..")
 from tensor import Tensor
 from graph import Graph
-class TestNN(unittest.TestCase):
+class TestRuntime(unittest.TestCase):
     def test_lifetime(self):
         def get_id(x):
             return hex(id(x))[-4:]
