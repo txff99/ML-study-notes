@@ -7,8 +7,6 @@ from tensor import Tensor
 from graph import Graph
 class TestRuntime(unittest.TestCase):
     def test_lifetime(self):
-        def get_id(x):
-            return hex(id(x))[-4:]
         x = Tensor(None, shape=(32,4), is_realized=False)
         weight = Tensor(None, shape=(4,32), is_realized=False)
         bias = Tensor(None, shape=(32,32), is_realized=False)
@@ -18,20 +16,21 @@ class TestRuntime(unittest.TestCase):
         program = g.export(inputs=(x,))
         snapshots = program.life_snapshots
         """
-        add 5290 (32, 32)
-            - 97d0 matmul (32, 32) [nan]
-            | - 8b90 (32, 4) [nan]
-            | - 5bd0 (4, 32) [nan]
-            - 68d0 (32, 32) [nan]
-        ->  [(['97d0'], ['97d0']), (['97d0', '5290'], ['5290'])]
+        add 94d0 (32, 32)
+            - dfd0 matmul (32, 32) [nan]
+            | - c650 (32, 4) [nan]
+            | - 1c90 (4, 32) [nan]
+            - 2c10 (32, 32) [nan]
+        (alloc: dfd0, dealloc: []) (alloc: 94d0, dealloc: ['dfd0']) 
         """
-        self.assertTrue(get_id(y)==(snapshots[0][0][0]))
-        self.assertTrue(get_id(y)==(snapshots[0][1][0]))
-
-        self.assertTrue(get_id(y)==(snapshots[1][0][0]),f"{get_id(y),(snapshots[1][0][0])}")
-        self.assertTrue(get_id(z)==(snapshots[1][0][1]))
-
-        self.assertTrue(get_id(z)==(snapshots[1][1][0]))
+        alloc1 = snapshots[0][0]
+        dealloc1 = snapshots[0][1]
+        self.assertTrue(y==(alloc1[0]))
+        self.assertTrue(len(dealloc1)==0)
+        alloc2 = snapshots[1][0]
+        dealloc2 = snapshots[1][1]
+        self.assertTrue(z==(alloc2[0]))
+        self.assertTrue(y==(dealloc2[0]))
 
 if __name__ == "__main__":
     unittest.main()

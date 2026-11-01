@@ -43,6 +43,15 @@ class Program:
         self.backend = backend
         self.life_snapshots = life_snapshots
 
+    def print_life_snapshots(self):
+        def get_id(x):
+            return hex(id(x))[-4:]
+        if self.life_snapshots is not None:
+            print_str = ""
+            for alloc, dealloc in self.life_snapshots:
+                print_str += f"(alloc: {get_id(alloc[0])}, dealloc: {[get_id(de) for de in dealloc]}) "
+            print(print_str)
+
     def run(self, inputs):
         from engine import Engine
         from util import bind_tensor_dyshape
@@ -102,13 +111,12 @@ class Graph:
     def get_lifetime_snapshots(self):
         ref_tracker = {}
         life_snapshots = []
-        life_snapshot = []
         visited = set()
         def get_tensor_refcount(tensor: Tensor):
             if tensor.function is None: return
-            tensor_id = hex(id(tensor))[-4:]
-            if tensor_id not in ref_tracker: ref_tracker[tensor_id] = 0
-            ref_tracker[tensor_id] += 1
+            # tensor_id = hex(id(tensor))[-4:]
+            if tensor not in ref_tracker: ref_tracker[tensor] = 0
+            ref_tracker[tensor] += 1
             if tensor in visited: return
             visited.add(tensor)    
             for mem in tensor.function.parents:
@@ -120,22 +128,19 @@ class Graph:
         visited.clear()
         def get_tensor_snapshot(tensor: Tensor):
             if tensor.function is None: return
-            tensor_id = hex(id(tensor))[-4:]
             if tensor in visited: return
             visited.add(tensor)  
             for mem in tensor.function.parents:
                 get_tensor_snapshot(mem)
 
-            life_snapshot.append(tensor_id)
-            pre = life_snapshot.copy()
+            alloc = [tensor]
+            dealloc = []
             for mem in tensor.function.parents:
-                mem_id = hex(id(mem))[-4:]
-                if mem_id in ref_tracker:
-                    ref_tracker[mem_id]-=1
-                    if ref_tracker[mem_id]==0:
-                        life_snapshot.remove(mem_id)
-            post = life_snapshot.copy()
-            life_snapshots.append((pre,post))
+                if mem in ref_tracker:
+                    ref_tracker[mem]-=1
+                    if ref_tracker[mem]==0:
+                        dealloc.append(mem)
+            life_snapshots.append((alloc,dealloc))
         for root in self.roots:
             get_tensor_snapshot(root)
         return life_snapshots
