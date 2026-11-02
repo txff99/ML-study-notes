@@ -36,12 +36,18 @@ def is_function_arithmetic(tensor:Tensor):
     return tensor.function is not None and tensor.function.name in arithmetic_funcs
 
 class Program:
-    def __init__(self, inputs, ops, outputs, backend=CPU(), life_snapshots=None):
+    def __init__(self, inputs, ops, outputs, backend=None, life_snapshots=None, enable_memory_plan=False, memory_pool_size=1024):
         self.inputs = inputs
         self.ops: List[Op] = ops 
         self.outputs = outputs
+        if backend is None:
+            backend = CPU()
         self.backend = backend
         self.life_snapshots = life_snapshots
+        self.enable_memory_plan = enable_memory_plan
+        if enable_memory_plan:
+            self.backend.set_inplace(True)
+            self.compile_memory_plan(pool_size=memory_pool_size)
 
     def print_life_snapshots(self):
         def get_id(x):
@@ -51,6 +57,30 @@ class Program:
             for alloc, dealloc in self.life_snapshots:
                 print_str += f"(alloc: {get_id(alloc[0])}, dealloc: {[get_id(de) for de in dealloc]}) "
             print(print_str)
+
+    def compile_memory_plan(self, pool_size=1024):
+        assert self.life_snapshots is not None
+        from engine import MemPool
+        from util import get_tensor_size
+        mempool = MemPool(total_byte=pool_size)
+        addr_tracker = {}
+        max_memory = 0
+        assert len(self.life_snapshots) == len(self.ops)
+        for (idx, snapshot) in enumerate(self.life_snapshots):
+            alloc, dealloc = snapshot
+            tensor_alloc = alloc[0]
+            alloc_size = get_tensor_size(tensor_alloc)
+            bytes = mempool.alloc(alloc_size, dtype=tensor_alloc.dtype)
+            max_memory += alloc_size
+            assert bytes is not None, f"memory plan failed, max_memory={max_memory}, pool_size={pool_size}"
+            addr_tracker[tensor_alloc] = bytes[0]
+            # bind memory to tensor's data
+            self.ops[idx].dst.data = bytes[1]
+            tensor_deallocs = dealloc
+            for tensor_dealloc in tensor_deallocs:
+                dealloc_size = get_tensor_size(tensor_dealloc)
+                mempool.dealloc(addr_tracker[tensor_dealloc])
+                max_memory -= dealloc_size
 
     def run(self, inputs):
         from engine import Engine
@@ -109,6 +139,7 @@ class Graph:
         return ops
 
     def get_lifetime_snapshots(self):
+        from util import get_tensor_size
         ref_tracker = {}
         life_snapshots = []
         visited = set()
@@ -177,10 +208,12 @@ class Graph:
             dfs(root)  
         return all([e.is_realized for e in edges])
 
-    def export(self, inputs:List[Tensor]):
+    def export(self, inputs:List[Tensor], enable_memory_plan=False, memory_pool_size=1024):
         ops = self.lower()
-        snapshots = self.get_lifetime_snapshots()
-        return Program(ops=ops, inputs=inputs, outputs=self.roots, life_snapshots=snapshots)
+        snapshots = None
+        if enable_memory_plan:
+            snapshots = self.get_lifetime_snapshots()
+        return Program(ops=ops, inputs=inputs, outputs=self.roots, life_snapshots=snapshots, enable_memory_plan=enable_memory_plan, memory_pool_size=memory_pool_size)
 
 def canonicalize(tensor:Tensor):
     c1 = Tensor(1, is_fake=True)

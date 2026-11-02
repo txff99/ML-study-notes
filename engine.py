@@ -24,6 +24,8 @@ class Block:
 class MemPool:
     def __init__(self, total_byte=1024):
         # total byte and minimum blk size need to be exponent of 2
+        def is_power_of_two(n): return n > 0 and (n & (n - 1)) == 0
+        assert is_power_of_two(total_byte), "total byte should be exponent of 2"
         self.buffer = np.empty(total_byte, dtype=np.uint8)
         self.total_size = total_byte
         self.minimum_blk_size = 16
@@ -38,7 +40,7 @@ class MemPool:
         dfs(self.root)
 
     def alloc(self, size, dtype=np.float32):
-        assert size <= self.total_size, "oom"
+        assert size <= self.total_size, f"size={size}, total_size={self.total_size}"
         def prop_occupy_state(blk):
             if (blk.left is not None and blk.left.occupied) and \
                 (blk.right is not None and blk.right.occupied): 
@@ -66,7 +68,7 @@ class MemPool:
                     return ret
 
         ret = dfs(self.root)
-        assert ret is not None, f"alloc {size} fail"
+        if ret is None: print(f"alloc {size} fail")
         return ret
     
     def dealloc(self, addr):

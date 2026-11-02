@@ -75,14 +75,15 @@ class TestRuntime(unittest.TestCase):
     @unittest.expectedFailure
     def test_mempool_overflow(self):
         pool = MemPool(1024)
-        pool.alloc(1025)
+        bytes = pool.alloc(1025)
+        self.assertTrue(bytes is None)
 
-    @unittest.expectedFailure
     def test_mempool_overflow2(self):
         pool = MemPool(1024)
         pool.alloc(512)
         pool.alloc(512)
-        pool.alloc(1)
+        bytes = pool.alloc(1)
+        self.assertTrue(bytes is None)
 
 
 if __name__ == "__main__":

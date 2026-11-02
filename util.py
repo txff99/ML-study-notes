@@ -109,3 +109,14 @@ def bind_tensor_dyshape(tensor, input):
     if tensor._offset is not None and isinstance(tensor._offset, sint):
         assert input.offset >= tensor._offset.min and input.offset <= tensor._offset.max
         tensor._offset.bind(input.offset)
+
+def get_tensor_size(tensor):
+    from tensor import sint
+    prod = 1
+    for s in tensor.shape:
+        if isinstance(s, int):
+            prod*=s
+        elif isinstance(s, sint):
+            assert not isinstance(s.max, sint)
+            prod*=s.max
+    return prod*np.dtype(tensor.dtype).itemsize

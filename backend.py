@@ -8,8 +8,13 @@ backend specify memory allocation and op execution for each device
 """
 
 class Backend:
-    def __init__(self):
+    def __init__(self, in_place=False):
         self.name = "dummy"
+        # in place means if data need to be written in the original buffer, instead of bind to a new one.
+        self.in_place = in_place
+    
+    def set_inplace(self, flag):
+        self.in_place = flag
 
     def execute(self, op: Op):
         pass
@@ -28,67 +33,72 @@ class CPU(Backend):
         srcs: List[Tensor] = op.srcs
         dst: Tensor = op.dst
         # optype matching
+        tmp = None
         if optype == OpType.ADD:
             assert len(srcs) == 2, "srcs num does not match"
-            dst.data = srcs[0].data + srcs[1].data
+            tmp = srcs[0].data + srcs[1].data
         elif optype == OpType.SUB:
             assert len(srcs) == 2, "srcs num does not match"
-            dst.data = srcs[0].data - srcs[1].data
+            tmp = srcs[0].data - srcs[1].data
         elif optype == OpType.MUL:
             assert len(srcs) == 2, "srcs num does not match"
-            dst.data = srcs[0].data * srcs[1].data
+            tmp = srcs[0].data * srcs[1].data
         elif optype == OpType.DIV:
             assert len(srcs) == 2, "srcs num does not match"
-            dst.data = srcs[0].data / srcs[1].data
+            tmp = srcs[0].data / srcs[1].data
         elif optype == OpType.MATMUL:
             assert len(srcs) == 2, "srcs num does not match"
-            dst.data = (np.matmul(srcs[0].data.reshape(srcs[0].shape), srcs[1].data.reshape(srcs[1].shape))).flatten()
+            tmp = (np.matmul(srcs[0].data.reshape(srcs[0].shape), srcs[1].data.reshape(srcs[1].shape))).flatten()
         elif optype == OpType.EXPAND:
             assert len(srcs) == 1, "srcs num does not match"
-            dst.data = srcs[0].data
+            tmp = srcs[0].data
         elif optype == OpType.TRANSPOSE:
             assert len(srcs) == 1, "srcs num does not match"
-            dst.data = srcs[0].data
+            tmp = srcs[0].data
         elif optype == OpType.RESHAPE:
             assert len(srcs) == 1, "srcs num does not match"
-            dst.data = srcs[0].data
+            tmp = srcs[0].data
         elif optype == OpType.INDEXGET:
             assert len(srcs) == 1, "srcs num does not match"
-            dst.data = srcs[0].data
+            tmp = srcs[0].data
         elif optype == OpType.INDEXPUT:
             assert len(srcs) == 1, "srcs num does not match"
             from runtime.numpy.index_put import index_put_numpy_impl
-            dst.data = index_put_numpy_impl(srcs[0],dst.function.shape_info, dst.function.value)
+            tmp = index_put_numpy_impl(srcs[0],dst.function.shape_info, dst.function.value)
         elif optype == OpType.CONTIGUOUS:
             assert len(srcs) == 1, "srcs num does not match"
             from runtime.numpy.contiguous import contiguous_numpy_impl
-            dst.data = contiguous_numpy_impl(srcs[0])
+            tmp = contiguous_numpy_impl(srcs[0])
         elif optype == OpType.MSELOSS:
             assert len(srcs) == 1, "srcs num does not match"
-            dst.data = np.mean(srcs[0].data**2)
+            tmp = np.mean(srcs[0].data**2)
         elif optype == OpType.MAXIMUM:
             assert len(srcs) == 1, "srcs num does not match"
             gate = dst.function.gate
             mask = srcs[0].data > gate
-            dst.data = srcs[0].data * mask
+            tmp = srcs[0].data * mask
         elif optype == OpType.MAX:
             assert len(srcs) == 1, "srcs num does not match"
-            dst.data = np.max(srcs[0].data.reshape(srcs[0].shape), axis=dst.function.dim).flatten()
+            tmp = np.max(srcs[0].data.reshape(srcs[0].shape), axis=dst.function.dim).flatten()
         elif optype == OpType.SUM:
             assert len(srcs) == 1, "srcs num does not match"
-            dst.data = np.sum(srcs[0].data.reshape(srcs[0].shape), axis=dst.function.dim).flatten()
+            tmp = np.sum(srcs[0].data.reshape(srcs[0].shape), axis=dst.function.dim).flatten()
         elif optype == OpType.SQRT:
             assert len(srcs) == 1, "srcs num does not match"
-            dst.data = np.sqrt(srcs[0].data)
+            tmp = np.sqrt(srcs[0].data)
         elif optype == OpType.EXP:
             assert len(srcs) == 1, "srcs num does not match"
-            dst.data = np.exp(srcs[0].data)
+            tmp = np.exp(srcs[0].data)
         elif optype == OpType.WHERE:
             assert len(srcs) == 3, "srcs num does not match"
             mask, t, f = srcs
-            dst.data = np.where(mask.data, t.data, f.data)
+            tmp = np.where(mask.data, t.data, f.data)
         else:
             raise NotImplementedError(f"Operation '{optype}' is not implemented.")
+        if self.in_place:
+            dst.data[:] = tmp
+        else:
+            dst.data = tmp
 
 
 class GPU(Backend):
