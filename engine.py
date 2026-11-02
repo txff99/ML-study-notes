@@ -16,10 +16,10 @@ class Block:
     size: int
     left: Block = None
     right: Block = None
-    occupyied: bool = False
+    occupied: bool = False
     empty: bool = True
     def __repr__(self):
-        return f"(addr={self.addr}, size={self.size}, occupyied={self.occupyied})"
+        return f"(addr={self.addr}, size={self.size}, occupied={self.occupied}, empty={self.empty})"
 
 class MemPool:
     def __init__(self, total_byte=1024):
@@ -40,32 +40,30 @@ class MemPool:
     def alloc(self, size, dtype=np.float32):
         assert size <= self.total_size, "oom"
         def prop_occupy_state(blk):
-            if blk.left is not None and blk.left.occupyied and \
-                blk.right is not None and blk.right.occupyied: 
+            if (blk.left is not None and blk.left.occupied) and \
+                (blk.right is not None and blk.right.occupied): 
                 blk.occupied=True
         def dfs(blk):
-            if blk.occupyied: return None
+            if blk.occupied: return None
             if (size <= blk.size and size > blk.size //2) or blk.size==self.minimum_blk_size:
                 if not blk.empty: return None
                 blk.empty=False
-                blk.occupyied=True
+                blk.occupied=True
                 return (blk.addr, self.buffer[blk.addr: blk.addr + size].view(dtype))
             blk.empty=False
             if blk.left is None: blk.left = Block(addr=blk.addr, size=blk.size//2)
-            if not blk.left.occupyied: 
+            if not blk.left.occupied: 
                 ret = dfs(blk.left) 
                 if ret is not None: 
                     prop_occupy_state(blk)
                     return ret
 
             if blk.right is None: blk.right = Block(addr=blk.addr + blk.size//2, size=blk.size//2)
-            if not blk.right.occupyied: 
+            if not blk.right.occupied: 
                 ret = dfs(blk.right) 
                 if ret is not None: 
                     prop_occupy_state(blk)
                     return ret
-
-            if blk.left.occupyied and blk.right.occupyied: blk.occupied=True
 
         ret = dfs(self.root)
         assert ret is not None, f"alloc {size} fail"
@@ -78,7 +76,7 @@ class MemPool:
             else:
                 if blk.left: dfs(blk.left)
             
-            blk.occupyied = False
+            blk.occupied = False
 
             if blk.left is not None and blk.left.empty:
                 blk.left = None
